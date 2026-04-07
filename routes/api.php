@@ -10,17 +10,21 @@ Route::apiResource('/v1/categorias', App\Http\Controllers\API\V1\CategoriaContro
     ->only(['show', 'index', 'store', 'update']);
 
 //Hamacas routes
-    Route::apiResource('/v1/hamacas', HamacaController::class)
-        ->only(['show', 'index', 'store', 'update']);
+// Get initial inventory
+Route::get('/v1/hamacas/monthly-inventory', [HamacaController::class, 'getMonthlyInventory']);
 
-    Route::post('/v1/hamacas/{hamaca}/colores', [HamacaController::class, 'addColor']);
-    Route::delete('/v1/hamacas/{hamaca}/colores/{color}', [HamacaController::class, 'removeColor']);
 
-    // Asignar usuario a una hamaca
-    Route::post('/v1/hamacas/{hamaca}/usuarios', [HamacaController::class, 'addUsuario']);
+Route::apiResource('/v1/hamacas', HamacaController::class)
+    ->only(['show', 'index', 'store', 'update']);
 
-    // Quitar usuario de una hamaca
-    Route::delete('/v1/hamacas/{hamaca}/usuarios/{usuario}', [HamacaController::class, 'removeUsuario']);
+Route::post('/v1/hamacas/{hamaca}/colores', [HamacaController::class, 'addColor']);
+Route::delete('/v1/hamacas/{hamaca}/colores/{color}', [HamacaController::class, 'removeColor']);
+
+// Asignar usuario a una hamaca
+Route::post('/v1/hamacas/{hamaca}/usuarios', [HamacaController::class, 'addUsuario']);
+
+// Quitar usuario de una hamaca
+Route::delete('/v1/hamacas/{hamaca}/usuarios/{usuario}', [HamacaController::class, 'removeUsuario']);
 
 
 //Fotos Hamacas Route 
@@ -44,8 +48,16 @@ Route::apiResource('/v1/colores', App\Http\Controllers\API\V1\ColorController::c
     ->only(['show', 'index', 'store', 'update']);
 
 //Movimientos routes
+
+// Get monthly entries
+Route::get('/v1/movimientos/monthly-entries', [App\Http\Controllers\API\V1\MovimientoController::class, 'getMonthlyEntries']);
+
+// Get monthly exits
+Route::get('/v1/movimientos/monthly-exits', [App\Http\Controllers\API\V1\MovimientoController::class, 'getMonthlyExits']);
+
 Route::apiResource('/v1/movimientos', App\Http\Controllers\API\V1\MovimientoController::class)
     ->only(['show', 'index', 'store', 'update']);
+
 
 //Facturas Route 
 Route::apiResource('/v1/facturas', App\Http\Controllers\API\V1\FacturaController::class)
@@ -54,3 +66,8 @@ Route::apiResource('/v1/facturas', App\Http\Controllers\API\V1\FacturaController
 //Detalle Facturas Route
 Route::apiResource('/v1/detalle_facturas', App\Http\Controllers\API\V1\DetalleFacturaController::class)
     ->only(['show', 'index', 'store', 'update']);
+
+
+//Dashboard routes
+Route::get('/v1/dashboard/movements-by-category', [App\Http\Controllers\API\V1\DashboardController::class, 'movementsByCategory']);
+Route::get('/v1/dashboard/category-stats/{categoriaId}', [App\Http\Controllers\API\V1\DashboardController::class, 'categoryStats']);

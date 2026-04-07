@@ -87,4 +87,28 @@ class MovimientoController extends Controller
             'message' => 'Movimiento eliminado correctamente'
         ], 200);
     }
+
+    public function getMonthlyEntries()
+    {
+        $entries = Movimiento::where('tipo', 'entrada')
+            ->whereYear('fecha', now()->year)
+            ->whereMonth('fecha', now()->month)
+            ->sum('cantidad');
+
+        return response()->json([
+            'entries' => $entries
+        ]);
+    }
+
+    public function getMonthlyExits()
+    {
+        $exits = Movimiento::where('tipo', 'salida')
+            ->whereYear('fecha', now()->year)
+            ->whereMonth('fecha', now()->month)
+            ->sum('cantidad');
+
+        return response()->json([
+            'exits' => $exits
+        ]);
+    }
 }

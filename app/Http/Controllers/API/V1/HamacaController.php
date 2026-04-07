@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\Hamaca;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class HamacaController extends Controller
     public function index()
     {
         // Retorna todas las hamacas
-       return new HamacaCollection(Hamaca::latest()->paginate());
+        return new HamacaCollection(Hamaca::latest()->paginate());
     }
 
     /**
@@ -41,7 +42,6 @@ class HamacaController extends Controller
             'message' => 'Hamaca creada correctamente',
             'data' => new HamacaResource($hamaca)
         ], 201);
-        
     }
 
     /**
@@ -73,7 +73,6 @@ class HamacaController extends Controller
             'message' => 'Hamaca actualizada correctamente',
             'data' => new HamacaResource($hamaca)
         ], 201);
-
     }
 
     /**
@@ -122,4 +121,18 @@ class HamacaController extends Controller
 
         return response()->json(['message' => 'Usuario desasignado de la hamaca']);
     }
+
+    public function getMonthlyInventory()
+    {
+        $total = DB::table('hamacas')
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->sum('cantidad');
+
+        return response()->json([
+            'total' => $total
+        ]);
+    }
+
+    
 }
