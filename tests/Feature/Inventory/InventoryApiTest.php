@@ -17,6 +17,7 @@ class InventoryApiTest extends TestCase
     {
         $admin = $this->seedAdmin();
         $seed = $this->seedCatalogAndColors();
+        $initialInventoryCount = DB::table('inventario_hamacas')->count();
         Sanctum::actingAs($admin);
 
         $payload = [
@@ -35,7 +36,7 @@ class InventoryApiTest extends TestCase
             'cantidad' => 3,
         ]))->assertCreated();
 
-        $this->assertDatabaseCount('inventario_hamacas', 1);
+        $this->assertDatabaseCount('inventario_hamacas', $initialInventoryCount + 1);
         $this->assertDatabaseHas('inventario_hamacas', [
             'hamaca_id' => $seed['hamaca_id'],
             'usuario_id' => $seed['usuario_id'],
@@ -43,21 +44,27 @@ class InventoryApiTest extends TestCase
             'cantidad' => 5,
         ]);
 
-        $inventarioId = DB::table('inventario_hamacas')->value('id');
+        $inventarioId = DB::table('inventario_hamacas')
+            ->where('hamaca_id', $seed['hamaca_id'])
+            ->where('usuario_id', $seed['usuario_id'])
+            ->where('ubicacion_id', $seed['ubicacion_id'])
+            ->value('id');
         $this->assertSame(4, DB::table('inventario_hamaca_color')->where('inventario_hamaca_id', $inventarioId)->count());
     }
 
     private function seedAdmin(): Usuario
     {
-        DB::table('usuarios')->insert([
-            'nombre' => 'Admin',
-            'correo' => 'admin@example.com',
-            'password' => Hash::make('secret123'),
-            'rol' => 'admin',
-            'state' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => 'admin@example.com'],
+            [
+                'nombre' => 'Admin',
+                'password' => Hash::make('secret123'),
+                'rol' => 'admin',
+                'state' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         return Usuario::where('correo', 'admin@example.com')->firstOrFail();
     }
@@ -85,23 +92,30 @@ class InventoryApiTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $usuarioId = DB::table('usuarios')->insertGetId([
-            'nombre' => 'Jacksa',
-            'correo' => 'jacksa@example.com',
-            'password' => Hash::make('secret123'),
-            'rol' => 'socio',
-            'state' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => 'jacksa@example.com'],
+            [
+                'nombre' => 'Jacksa',
+                'password' => Hash::make('secret123'),
+                'rol' => 'socio',
+                'state' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+        $usuarioId = DB::table('usuarios')->where('correo', 'jacksa@example.com')->value('id');
 
         $colors = [];
         foreach (['Blanco', 'Azul', 'Rojo', 'Verde'] as $color) {
-            $colors[] = DB::table('colores')->insertGetId([
-                'nombre' => $color,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('colores')->updateOrInsert(
+                ['nombre' => $color],
+                [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+
+            $colors[] = DB::table('colores')->where('nombre', $color)->value('id');
         }
 
         $hamacaId = DB::table('hamacas')->insertGetId([

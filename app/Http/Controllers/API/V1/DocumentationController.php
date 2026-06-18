@@ -61,6 +61,8 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ['name' => 'Fotos'],
                 ['name' => 'Inventario'],
                 ['name' => 'Usuarios'],
+                ['name' => 'Pantallas'],
+                ['name' => 'Permisos'],
                 ['name' => 'Movimientos'],
                 ['name' => 'Facturas'],
                 ['name' => 'POS'],
@@ -72,6 +74,11 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         'type' => 'http',
                         'scheme' => 'bearer',
                         'bearerFormat' => 'Sanctum token',
+                    ],
+                    'apiKeyAuth' => [
+                        'type' => 'apiKey',
+                        'in' => 'header',
+                        'name' => 'X-API-Key',
                     ],
                 ],
                 'schemas' => [
@@ -107,6 +114,39 @@ HTML, 200, ['Content-Type' => 'text/html']);
                             'correo' => ['type' => 'string'],
                             'rol' => ['type' => 'string'],
                             'state' => ['type' => 'boolean'],
+                        ],
+                    ],
+                    'Pantalla' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'nombre' => ['type' => 'string'],
+                            'slug' => ['type' => 'string'],
+                            'descripcion' => ['type' => 'string', 'nullable' => true],
+                            'ruta' => ['type' => 'string', 'nullable' => true],
+                            'icono' => ['type' => 'string', 'nullable' => true],
+                            'orden' => ['type' => 'integer'],
+                            'state' => ['type' => 'boolean'],
+                        ],
+                    ],
+                    'Permiso' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'nombre' => ['type' => 'string'],
+                            'slug' => ['type' => 'string'],
+                            'descripcion' => ['type' => 'string', 'nullable' => true],
+                        ],
+                    ],
+                    'PantallaPermisoRol' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'pantalla_id' => ['type' => 'integer'],
+                            'permiso_id' => ['type' => 'integer'],
+                            'rol' => ['type' => 'string', 'enum' => ['admin', 'vendedor', 'almacenista', 'socio']],
+                            'pantalla' => ['$ref' => '#/components/schemas/Pantalla'],
+                            'permiso' => ['$ref' => '#/components/schemas/Permiso'],
                         ],
                     ],
                     'Categoria' => [
@@ -403,6 +443,36 @@ HTML, 200, ['Content-Type' => 'text/html']);
                     'get' => ['tags' => ['Usuarios'], 'summary' => 'Ver usuario', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('usuario')], 'responses' => ['200' => ['description' => 'Usuario']]],
                     'put' => ['tags' => ['Usuarios'], 'summary' => 'Actualizar usuario', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('usuario')], 'responses' => ['200' => ['description' => 'Usuario actualizado']]],
                     'delete' => ['tags' => ['Usuarios'], 'summary' => 'Eliminar usuario', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('usuario')], 'responses' => ['200' => ['description' => 'Usuario eliminado']]],
+                ],
+                '/v1/pantallas' => [
+                    'get' => ['tags' => ['Pantallas'], 'summary' => 'Listar pantallas', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de pantallas']]],
+                    'post' => ['tags' => ['Pantallas'], 'summary' => 'Crear pantalla', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['201' => ['description' => 'Pantalla creada']]],
+                ],
+                '/v1/pantallas/{pantalla}' => [
+                    'get' => ['tags' => ['Pantallas'], 'summary' => 'Ver pantalla', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla')], 'responses' => ['200' => ['description' => 'Pantalla']]],
+                    'put' => ['tags' => ['Pantallas'], 'summary' => 'Actualizar pantalla', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla')], 'responses' => ['200' => ['description' => 'Pantalla actualizada']]],
+                    'delete' => ['tags' => ['Pantallas'], 'summary' => 'Eliminar pantalla', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla')], 'responses' => ['200' => ['description' => 'Pantalla eliminada']]],
+                ],
+                '/v1/permisos' => [
+                    'get' => ['tags' => ['Permisos'], 'summary' => 'Listar permisos', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de permisos']]],
+                    'post' => ['tags' => ['Permisos'], 'summary' => 'Crear permiso', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['201' => ['description' => 'Permiso creado']]],
+                ],
+                '/v1/permisos/{permiso}' => [
+                    'get' => ['tags' => ['Permisos'], 'summary' => 'Ver permiso', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('permiso')], 'responses' => ['200' => ['description' => 'Permiso']]],
+                    'put' => ['tags' => ['Permisos'], 'summary' => 'Actualizar permiso', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('permiso')], 'responses' => ['200' => ['description' => 'Permiso actualizado']]],
+                    'delete' => ['tags' => ['Permisos'], 'summary' => 'Eliminar permiso', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('permiso')], 'responses' => ['200' => ['description' => 'Permiso eliminado']]],
+                ],
+                '/v1/pantalla-permiso-roles' => [
+                    'get' => ['tags' => ['Permisos'], 'summary' => 'Listar accesos por pantalla, permiso y rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de accesos']]],
+                    'post' => ['tags' => ['Permisos'], 'summary' => 'Crear acceso por pantalla, permiso y rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['201' => ['description' => 'Acceso creado']]],
+                ],
+                '/v1/pantalla-permiso-roles/current' => [
+                    'get' => ['tags' => ['Permisos'], 'summary' => 'Listar accesos del rol autenticado', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'responses' => ['200' => ['description' => 'Accesos del rol actual']]],
+                ],
+                '/v1/pantalla-permiso-roles/{pantalla_permiso_role}' => [
+                    'get' => ['tags' => ['Permisos'], 'summary' => 'Ver acceso por rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla_permiso_role')], 'responses' => ['200' => ['description' => 'Acceso']]],
+                    'put' => ['tags' => ['Permisos'], 'summary' => 'Actualizar acceso por rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla_permiso_role')], 'responses' => ['200' => ['description' => 'Acceso actualizado']]],
+                    'delete' => ['tags' => ['Permisos'], 'summary' => 'Eliminar acceso por rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla_permiso_role')], 'responses' => ['200' => ['description' => 'Acceso eliminado']]],
                 ],
                 '/v1/movimientos' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Listar movimientos', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de movimientos']]],

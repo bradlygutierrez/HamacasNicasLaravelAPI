@@ -8,6 +8,7 @@ Este documento fue generado leyendo el estado actual del proyecto Laravel en el 
 - Version activa: `/v1`
 - Content type JSON: `Content-Type: application/json`, salvo usuarios con foto, que debe enviarse como `multipart/form-data`.
 - Autenticacion: Laravel Sanctum con header `Authorization: Bearer {access_token}`.
+- API key: si el backend define `HAMACAS_API_KEY`, las rutas protegidas tambien requieren `X-API-Key: {valor}`.
 - Roles usados por middleware: `admin`, `vendedor`, `almacenista`, `socio`.
 - Error sin sesion: normalmente `401`.
 - Error por rol insuficiente: `403` con `{ "message": "No autorizado." }`.
@@ -130,6 +131,36 @@ Laravel `JsonResource` envuelve recursos individuales como `{ "data": { ... } }`
     "precio_unitario": "number|string decimal",
     "subtotal": "number|string decimal",
     "colores": "array<string>",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  },
+  "Pantalla": {
+    "id": "number",
+    "nombre": "string",
+    "slug": "string",
+    "descripcion": "string|null",
+    "ruta": "string|null",
+    "icono": "string|null",
+    "orden": "number",
+    "state": "boolean",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  },
+  "Permiso": {
+    "id": "number",
+    "nombre": "string",
+    "slug": "string",
+    "descripcion": "string|null",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  },
+  "PantallaPermisoRol": {
+    "id": "number",
+    "pantalla_id": "number",
+    "permiso_id": "number",
+    "rol": "admin|vendedor|almacenista|socio",
+    "pantalla": "Pantalla|null",
+    "permiso": "Permiso|null",
     "created_at": "datetime",
     "updated_at": "datetime"
   }
@@ -757,15 +788,12 @@ Laravel `JsonResource` envuelve recursos individuales como `{ "data": { ... } }`
 - Path: por convencion de `apiResource`, el parametro es `{detalle_factura}`.
 - Respuesta `200`: `{ "data": "DetalleFactura" }`.
 
-## Controladores/metodos existentes pero sin endpoint activo
+## Endpoints POS y permisos agregados
 
-Estos metodos existen en el codigo, e incluso algunos tests/docs los esperan, pero no estan registrados actualmente en `routes/api.php`.
+### POS activo: `POST /api/v1/pos/ventas`
 
-### POS planeado: `POST /api/v1/pos/ventas`
-
-- Estado: no activo en `route:list` actual.
-- Existe: `PosVentaController@store`, `StoreVentaRequest`, `VentaService` y tests.
-- Auth esperada por negocio: probablemente `vendedor` o usuario autenticado; hoy no hay ruta/middleware.
+- Estado: activo en `routes/api.php`.
+- Auth: `vendedor` o `admin`, con Sanctum y API key si `HAMACAS_API_KEY` esta configurada.
 - Body esperado:
 
 ```json
@@ -790,14 +818,81 @@ Estos metodos existen en el codigo, e incluso algunos tests/docs los esperan, pe
 ```
 
 - Validacion: `nombre_cliente` y `canal` requeridos; `items` requerido array min 1; cada item requiere `inventario_hamaca_id` existente y `cantidad` min 1.
-- Respuesta implementada si se registra ruta: `201 { "message": "Venta registrada correctamente.", "data": "Factura" }`.
+- Respuesta: `201 { "message": "Venta registrada correctamente.", "data": "Factura" }`.
 - Calculos: subtotal desde precio de hamaca del inventario, descuento, IVA 15%, IR 2% si `aplica_ir`, total = base + IVA - IR. Reduce stock y crea movimiento `salida`.
 
-### Documentacion planeada
+### Pantallas y permisos
 
-- `GET /api/v1/documentation`: existe `DocumentationController@ui`, no activo.
-- `GET /api/v1/openapi.json`: existe `DocumentationController@json`, no activo.
-- Los tests esperan `/api/v1/openapi.json`, pero la ruta no esta registrada.
+#### `GET /api/v1/pantallas`
+
+- Auth: `admin`.
+- Respuesta: coleccion de `Pantalla`.
+
+#### `POST /api/v1/pantallas`
+
+- Auth: `admin`.
+- Body:
+
+```json
+{
+  "nombre": "Ventas POS",
+  "slug": "ventas-pos",
+  "descripcion": "Opcional",
+  "ruta": "/ventas",
+  "icono": "shopping-cart",
+  "orden": 30,
+  "state": true
+}
+```
+
+#### `GET /api/v1/permisos`
+
+- Auth: `admin`.
+- Respuesta: coleccion de `Permiso`.
+
+#### `POST /api/v1/permisos`
+
+- Auth: `admin`.
+- Body:
+
+```json
+{
+  "nombre": "Ver",
+  "slug": "ver",
+  "descripcion": "Permite consultar una pantalla"
+}
+```
+
+#### `GET /api/v1/pantalla-permiso-roles`
+
+- Auth: `admin`.
+- Query opcional: `rol`, `pantalla_id`, `permiso_id`.
+- Respuesta: coleccion de `PantallaPermisoRol`.
+
+#### `POST /api/v1/pantalla-permiso-roles`
+
+- Auth: `admin`.
+- Body:
+
+```json
+{
+  "pantalla_id": 1,
+  "permiso_id": 1,
+  "rol": "vendedor"
+}
+```
+
+#### `GET /api/v1/pantalla-permiso-roles/current`
+
+- Auth: cualquier usuario autenticado.
+- Respuesta: accesos del rol del usuario actual.
+
+### Documentacion activa
+
+- `GET /api/v1/documentation`: Swagger UI.
+- `GET /api/v1/openapi.json`: especificacion OpenAPI.
+
+## Controladores/metodos existentes pero sin endpoint activo
 
 ### Dashboard planeado
 
@@ -833,4 +928,4 @@ Con los endpoints activos actuales, las pantallas viables son:
 8. Movimientos: listado y detalle de auditoria.
 9. Facturas y detalle de facturas: solo lectura.
 
-Para pantalla POS completa falta registrar `POST /api/v1/pos/ventas` en rutas.
+La pantalla POS puede usar `POST /api/v1/pos/ventas` para registrar ventas y las rutas de facturas para consultar comprobantes emitidos.

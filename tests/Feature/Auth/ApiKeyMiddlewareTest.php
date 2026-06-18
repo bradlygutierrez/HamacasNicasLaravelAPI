@@ -9,30 +9,28 @@ use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-class RoleAuthorizationTest extends TestCase
+class ApiKeyMiddlewareTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_vendor_cannot_create_users(): void
+    public function test_protected_sanctum_route_requires_configured_api_key(): void
     {
-        $usuario = $this->seedUser('vendedor');
-        Sanctum::actingAs($usuario);
+        config(['services.hamacas.api_key' => 'testing-api-key']);
 
-        $this->postJson('/api/v1/usuarios', [
-            'nombre' => 'Nueva Persona',
-            'correo' => 'nueva@example.com',
-            'password' => 'secret123',
-            'rol' => 'socio',
-        ])->assertForbidden();
-    }
-
-    public function test_admin_can_access_user_management(): void
-    {
         $usuario = $this->seedUser('admin');
         Sanctum::actingAs($usuario);
 
-        $this->getJson('/api/v1/usuarios')
-            ->assertOk();
+        $this->getJson('/api/v1/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'API key inválida o ausente.');
+
+        $this->getJson('/api/v1/me', ['X-API-Key' => 'wrong-key'])
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'API key inválida o ausente.');
+
+        $this->getJson('/api/v1/me', ['X-API-Key' => 'testing-api-key'])
+            ->assertOk()
+            ->assertJsonPath('data.correo', 'admin@example.com');
     }
 
     private function seedUser(string $role): Usuario

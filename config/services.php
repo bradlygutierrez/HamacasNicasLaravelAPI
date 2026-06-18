@@ -22,6 +22,10 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'hamacas' => [
+        'api_key' => env('HAMACAS_API_KEY', env('API_KEY')),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

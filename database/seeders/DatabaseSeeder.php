@@ -172,6 +172,92 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $pantallas = [
+            ['nombre' => 'Dashboard', 'slug' => 'dashboard', 'ruta' => '/dashboard', 'icono' => 'layout-dashboard', 'orden' => 10],
+            ['nombre' => 'Inventario', 'slug' => 'inventario', 'ruta' => '/inventario', 'icono' => 'boxes', 'orden' => 20],
+            ['nombre' => 'Ventas POS', 'slug' => 'ventas-pos', 'ruta' => '/ventas', 'icono' => 'shopping-cart', 'orden' => 30],
+            ['nombre' => 'Facturas', 'slug' => 'facturas', 'ruta' => '/facturas', 'icono' => 'receipt', 'orden' => 40],
+            ['nombre' => 'Usuarios', 'slug' => 'usuarios', 'ruta' => '/usuarios', 'icono' => 'users', 'orden' => 50],
+            ['nombre' => 'Permisos', 'slug' => 'permisos', 'ruta' => '/permisos', 'icono' => 'shield-check', 'orden' => 60],
+        ];
+
+        foreach ($pantallas as $pantalla) {
+            DB::table('pantallas')->updateOrInsert(
+                ['slug' => $pantalla['slug']],
+                [
+                    ...$pantalla,
+                    'descripcion' => null,
+                    'state' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]
+            );
+        }
+
+        $permisos = [
+            ['nombre' => 'Ver', 'slug' => 'ver', 'descripcion' => 'Permite consultar una pantalla o recurso.'],
+            ['nombre' => 'Crear', 'slug' => 'crear', 'descripcion' => 'Permite crear registros.'],
+            ['nombre' => 'Editar', 'slug' => 'editar', 'descripcion' => 'Permite actualizar registros.'],
+            ['nombre' => 'Eliminar', 'slug' => 'eliminar', 'descripcion' => 'Permite eliminar o desactivar registros.'],
+        ];
+
+        foreach ($permisos as $permiso) {
+            DB::table('permisos')->updateOrInsert(
+                ['slug' => $permiso['slug']],
+                [
+                    ...$permiso,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]
+            );
+        }
+
+        $pantallaIds = DB::table('pantallas')->pluck('id', 'slug');
+        $permisoIds = DB::table('permisos')->pluck('id', 'slug');
+
+        $accesos = [
+            'admin' => [
+                'dashboard' => ['ver'],
+                'inventario' => ['ver', 'crear', 'editar', 'eliminar'],
+                'ventas-pos' => ['ver', 'crear'],
+                'facturas' => ['ver'],
+                'usuarios' => ['ver', 'crear', 'editar', 'eliminar'],
+                'permisos' => ['ver', 'crear', 'editar', 'eliminar'],
+            ],
+            'vendedor' => [
+                'dashboard' => ['ver'],
+                'inventario' => ['ver'],
+                'ventas-pos' => ['ver', 'crear'],
+                'facturas' => ['ver'],
+            ],
+            'almacenista' => [
+                'dashboard' => ['ver'],
+                'inventario' => ['ver', 'crear', 'editar'],
+            ],
+            'socio' => [
+                'dashboard' => ['ver'],
+                'inventario' => ['ver'],
+            ],
+        ];
+
+        foreach ($accesos as $rol => $pantallasPorRol) {
+            foreach ($pantallasPorRol as $pantallaSlug => $permisoSlugs) {
+                foreach ($permisoSlugs as $permisoSlug) {
+                    DB::table('pantalla_permiso_roles')->updateOrInsert(
+                        [
+                            'pantalla_id' => $pantallaIds[$pantallaSlug],
+                            'permiso_id' => $permisoIds[$permisoSlug],
+                            'rol' => $rol,
+                        ],
+                        [
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
+                    );
+                }
+            }
+        }
+
         $this->command?->info('Credenciales de desarrollo: admin@example.com / secret123');
     }
 }

@@ -25,6 +25,9 @@ class SchemaTest extends TestCase
             'facturas',
             'detalle_facturas',
             'movimientos',
+            'pantallas',
+            'permisos',
+            'pantalla_permiso_roles',
             'personal_access_tokens',
         ] as $table) {
             $this->assertTrue(Schema::hasTable($table), "Missing table: {$table}");
@@ -63,6 +66,27 @@ class SchemaTest extends TestCase
             'monto_ir',
             'total',
         ]));
+
+        $this->assertTrue(Schema::hasColumns('pantallas', [
+            'nombre',
+            'slug',
+            'ruta',
+            'icono',
+            'orden',
+            'state',
+        ]));
+
+        $this->assertTrue(Schema::hasColumns('permisos', [
+            'nombre',
+            'slug',
+            'descripcion',
+        ]));
+
+        $this->assertTrue(Schema::hasColumns('pantalla_permiso_roles', [
+            'pantalla_id',
+            'permiso_id',
+            'rol',
+        ]));
     }
 
     public function test_inventory_has_required_foreign_keys_and_group_uniqueness(): void
@@ -82,6 +106,24 @@ class SchemaTest extends TestCase
                 && in_array('usuario_id', $index['columns'], true)
                 && in_array('ubicacion_id', $index['columns'], true)
                 && in_array('composicion_clave', $index['columns'], true)
+        ));
+    }
+
+    public function test_screen_permission_role_table_has_required_foreign_keys_and_uniqueness(): void
+    {
+        $foreignKeys = collect(Schema::getForeignKeys('pantalla_permiso_roles'));
+
+        $this->assertTrue($foreignKeys->contains(fn (array $foreignKey): bool => $foreignKey['foreign_table'] === 'pantallas'));
+        $this->assertTrue($foreignKeys->contains(fn (array $foreignKey): bool => $foreignKey['foreign_table'] === 'permisos'));
+
+        $indexes = collect(Schema::getIndexes('pantalla_permiso_roles'));
+
+        $this->assertTrue($indexes->contains(
+            fn (array $index): bool => $index['unique'] === true
+                && $index['primary'] === false
+                && in_array('pantalla_id', $index['columns'], true)
+                && in_array('permiso_id', $index['columns'], true)
+                && in_array('rol', $index['columns'], true)
         ));
     }
 }

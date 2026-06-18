@@ -47,4 +47,9 @@ class Usuario extends Authenticatable
     {
         return $this->hasMany(Factura::class);
     }
+
+    public function accesosPorRol()
+    {
+        return $this->hasMany(PantallaPermisoRol::class, 'rol', 'rol');
+    }
 }

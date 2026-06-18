@@ -82,15 +82,17 @@ class PosSaleTest extends TestCase
 
     private function seedVendedor(): Usuario
     {
-        DB::table('usuarios')->insert([
-            'nombre' => 'Vendedor',
-            'correo' => 'vendedor@example.com',
-            'password' => Hash::make('secret123'),
-            'rol' => 'vendedor',
-            'state' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => 'vendedor@example.com'],
+            [
+                'nombre' => 'Vendedor',
+                'password' => Hash::make('secret123'),
+                'rol' => 'vendedor',
+                'state' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         return Usuario::where('correo', 'vendedor@example.com')->firstOrFail();
     }
@@ -130,11 +132,15 @@ class PosSaleTest extends TestCase
 
         $colorIds = [];
         foreach (['Blanco', 'Azul', 'Rojo', 'Verde'] as $color) {
-            $colorIds[] = DB::table('colores')->insertGetId([
-                'nombre' => $color,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('colores')->updateOrInsert(
+                ['nombre' => $color],
+                [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+
+            $colorIds[] = DB::table('colores')->where('nombre', $color)->value('id');
         }
 
         $hamacaId = DB::table('hamacas')->insertGetId([

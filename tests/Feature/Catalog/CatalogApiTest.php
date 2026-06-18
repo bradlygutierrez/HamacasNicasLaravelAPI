@@ -45,15 +45,17 @@ class CatalogApiTest extends TestCase
 
     private function seedAdmin(): Usuario
     {
-        DB::table('usuarios')->insert([
-            'nombre' => 'Admin',
-            'correo' => 'admin@example.com',
-            'password' => Hash::make('secret123'),
-            'rol' => 'admin',
-            'state' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => 'admin@example.com'],
+            [
+                'nombre' => 'Admin',
+                'password' => Hash::make('secret123'),
+                'rol' => 'admin',
+                'state' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         return Usuario::where('correo', 'admin@example.com')->firstOrFail();
     }

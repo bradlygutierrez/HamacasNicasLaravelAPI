@@ -61,15 +61,17 @@ class AdministrativeAuthTest extends TestCase
 
     private function seedBasicUser(string $role): Usuario
     {
-        DB::table('usuarios')->insert([
-            'nombre' => strtoupper($role),
-            'correo' => "{$role}@example.com",
-            'password' => Hash::make('secret123'),
-            'rol' => $role,
-            'state' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => "{$role}@example.com"],
+            [
+                'nombre' => strtoupper($role),
+                'password' => Hash::make('secret123'),
+                'rol' => $role,
+                'state' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         return Usuario::where('correo', "{$role}@example.com")->firstOrFail();
     }
