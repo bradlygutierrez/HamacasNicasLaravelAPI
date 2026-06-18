@@ -11,17 +11,38 @@ class Factura extends Model
     use HasFactory;
 
 	 protected $fillable = [
-        'usuario_id',
-        'fecha',
+        'numero',
+        'cliente_id',
+        'vendedor_id',
+        'canal',
+        'nombre_cliente',
+        'ruc',
+        'direccion',
+        'telefono',
+        'correo',
+        'metodo_pago',
+        'subtotal',
+        'descuento',
+        'tasa_iva',
+        'monto_iva',
+        'aplica_ir',
+        'tasa_ir',
+        'monto_ir',
         'total',
+        'fecha',
     ];
 
     public function usuario()
     {
-        return $this->belongsTo(Usuario::class);
+        return $this->belongsTo(Usuario::class, 'vendedor_id');
     }
 
-    public function detalleFacturas()
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    public function detalles()
     {
         return $this->hasMany(DetalleFactura::class);
     }

@@ -20,6 +20,21 @@ class HamacaController extends Controller
         return new HamacaCollection(Hamaca::latest()->paginate());
     }
 
+    public function getHamacasWithDetails()
+    {
+        $hamacas = Hamaca::with([
+            'categoria',
+            'tamano',
+            'fotos',
+            'inventarios.colores',
+            'inventarios.usuario',
+            'inventarios.ubicacion',
+
+        ])->latest()->paginate();
+
+        return new HamacaCollection($hamacas);
+    }
+
     /**
      * Store a newly created resource in storage.
      */
@@ -30,9 +45,7 @@ class HamacaController extends Controller
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string',
             'categoria_id' => 'required|integer',
-            'ubicacion_id' => 'required|integer',
             'tamano_id' => 'required|integer',
-            'cantidad' => 'required|integer',
             'precio' => 'required|numeric',
         ]);
 
@@ -49,6 +62,13 @@ class HamacaController extends Controller
      */
     public function show(Hamaca $hamaca)
     {
+        $hamaca->load([
+            'categoria',
+            'tamano',
+            'colores',
+            'fotos'
+        ]);
+
         return new HamacaResource($hamaca);
     }
 
@@ -61,9 +81,7 @@ class HamacaController extends Controller
             'nombre' => 'sometimes|string|max:100',
             'descripcion' => 'nullable|string',
             'categoria_id' => 'sometimes|integer',
-            'ubicacion_id' => 'sometimes|integer',
             'tamano_id' => 'sometimes|integer',
-            'cantidad' => 'sometimes|integer',
             'precio' => 'sometimes|numeric',
         ]);
 
@@ -85,54 +103,13 @@ class HamacaController extends Controller
         return response()->json(['message' => 'Hamaca eliminada correctamente.']);
     }
 
-    public function addColor(Request $request, \App\Models\Hamaca $hamaca)
-    {
-        $request->validate([
-            'color_id' => 'required|exists:colores,id'
-        ]);
-
-        // evita duplicados automáticamente
-        $hamaca->colores()->syncWithoutDetaching([$request->color_id]);
-
-        return response()->json(['message' => 'Color agregado']);
-    }
-
-    public function removeColor(\App\Models\Hamaca $hamaca, $colorId)
-    {
-        $hamaca->colores()->detach($colorId);
-
-        return response()->json(['message' => 'Color eliminado']);
-    }
-
-    public function addUsuario(Request $request, \App\Models\Hamaca $hamaca)
-    {
-        $request->validate([
-            'usuario_id' => 'required|exists:usuarios,id'
-        ]);
-
-        $hamaca->usuarios()->syncWithoutDetaching([$request->usuario_id]);
-
-        return response()->json(['message' => 'Usuario asignado a la hamaca']);
-    }
-
-    public function removeUsuario(\App\Models\Hamaca $hamaca, $usuarioId)
-    {
-        $hamaca->usuarios()->detach($usuarioId);
-
-        return response()->json(['message' => 'Usuario desasignado de la hamaca']);
-    }
-
     public function getMonthlyInventory()
     {
-        $total = DB::table('hamacas')
-            ->whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)
+        $total = DB::table('inventario_hamacas')
             ->sum('cantidad');
 
         return response()->json([
             'total' => $total
         ]);
     }
-
-    
 }

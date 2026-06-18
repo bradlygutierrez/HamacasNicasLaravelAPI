@@ -11,16 +11,19 @@ class Movimiento extends Model
     use HasFactory;
 
 	protected $fillable = [
-        'hamaca_id',
+        'inventario_hamaca_id',
         'usuario_id',
+        'factura_id',
+        'ubicacion_origen_id',
+        'ubicacion_destino_id',
         'tipo', // entrada o salida
         'cantidad',
         'fecha',
     ];
 
-    public function hamaca()
+    public function inventarioHamaca()
     {
-        return $this->belongsTo(Hamaca::class);
+        return $this->belongsTo(InventarioHamaca::class);
     }
 
     public function usuario()

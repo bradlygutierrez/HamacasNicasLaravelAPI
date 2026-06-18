@@ -8,6 +8,8 @@ use App\Http\Resources\V1\UsuarioCollection;
 use App\Models\Usuario;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class UsuarioController extends Controller
 {
@@ -16,8 +18,7 @@ class UsuarioController extends Controller
      */
     public function index()
     {
-        return new UsuarioCollection(Usuario::latest()->paginate(10));
-
+        return new UsuarioCollection(Usuario::where('state', true)->latest()->paginate(10));
     }
 
     /**
@@ -25,15 +26,19 @@ class UsuarioController extends Controller
      */
     public function store(Request $request)
     {
-         $validated = $request->validate([
+        $validated = $request->validate([
             'nombre' => 'required|string|max:100',
             'correo' => 'required|string|email|max:150|unique:usuarios,correo',
-            'contraseña' => 'required|string|min:6',
+            'password' => 'required|string|min:6',
+            'foto' => 'nullable|image|max:2048',
             'rol' => 'nullable|in:admin,vendedor,almacenista,socio',
         ]);
 
-        // Cifrar contraseña
-        $validated['contraseña'] = Hash::make($validated['contraseña']);
+        // Manejar carga de foto si se proporciona
+        if ($request->hasFile('foto')) {
+            $path = $request->file('foto')->store('usuarios', 'public');
+            $validated['foto'] = $path;
+        }
 
         $usuario = Usuario::create($validated);
 
@@ -49,7 +54,6 @@ class UsuarioController extends Controller
     public function show(Usuario $usuario)
     {
         return new UsuarioResource($usuario);
-
     }
 
     /**
@@ -59,14 +63,19 @@ class UsuarioController extends Controller
     {
         $validated = $request->validate([
             'nombre' => 'sometimes|string|max:100',
-            'correo' => 'sometimes|string|email|max:150|unique:usuarios,correo,' . $usuario->id,
-            'contraseña' => 'sometimes|string|min:6',
+            'correo' => ['sometimes', 'string', 'email', 'max:150', Rule::unique('usuarios', 'correo')->ignore($usuario->id)],
+            'password' => 'sometimes|string|min:6',
+            'foto' => 'nullable|image|max:2048',
             'rol' => 'nullable|in:admin,vendedor,almacenista,socio',
         ]);
 
-        // Cifrar contraseña solo si viene en el request
-        if (isset($validated['contraseña'])) {
-            $validated['contraseña'] = Hash::make($validated['contraseña']);
+        // Manejar carga de foto si se proporciona
+        if ($request->hasFile('foto')) {
+            if ($usuario->foto) {
+                Storage::disk('public')->delete($usuario->foto);
+            };
+            $path = $request->file('foto')->store('usuarios', 'public');
+            $validated['foto'] = $path;
         }
 
         $usuario->update($validated);
@@ -74,7 +83,7 @@ class UsuarioController extends Controller
         return response()->json([
             'message' => 'Usuario actualizado correctamente',
             'data' => new UsuarioResource($usuario)
-        ], 201);
+        ], 200);
     }
 
     /**
@@ -82,7 +91,12 @@ class UsuarioController extends Controller
      */
     public function destroy(Usuario $usuario)
     {
-        $usuario->delete();
+        //Este condicional elimina la foto del disk si el el usuario tiene una foto asociada antes de eliminar el registro del usuario en la base de datos. Esto es importante para evitar dejar archivos huérfanos en el almacenamiento después de que el usuario haya sido eliminado.
+        if ($usuario->foto) {
+            Storage::disk('public')->delete($usuario->foto);
+        }
+
+        $usuario->update(['state' => false]);
 
         return response()->json(['message' => 'Usuario eliminado correctamente.']);
     }

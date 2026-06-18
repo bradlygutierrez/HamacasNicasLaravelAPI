@@ -17,7 +17,7 @@ class MovimientoResource extends JsonResource
         return [
             'id' => $this->id,
             'usuario' => $this->usuario_id ? $this->usuario->nombre : null,
-            'hamaca' => $this->hamaca_id ? $this->hamaca->nombre : null,
+            'inventario_hamaca_id' => $this->inventario_hamaca_id,
             'tipo' => $this->tipo,
             'cantidad' => $this->cantidad,
             'fecha' => $this->fecha,

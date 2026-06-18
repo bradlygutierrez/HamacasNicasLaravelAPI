@@ -18,8 +18,9 @@ class UsuarioResource extends JsonResource
             'id' => $this->id,
             'nombre' => $this->nombre,
             'correo' => $this->correo,
-            'contraseña' => $this->contraseña,
+            'foto' => $this->foto ? asset('storage/' . $this->foto) : null,
             'rol' => $this->rol,
+            'state' => (bool) $this->state,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

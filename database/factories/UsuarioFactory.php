@@ -21,10 +21,11 @@ class UsuarioFactory extends Factory
     public function definition()
     {
         return [
-             'nombre' => $this->faker->name(),
+            'nombre' => $this->faker->name(),
             'correo' => $this->faker->unique()->safeEmail(), // <- cambiar 'email' por 'correo'
-            'contraseña' => bcrypt('password123'),           // <- para tener un valor válido
+            'password' => bcrypt('password123'),
             'rol' => 'socio',
+            'state' => true,
         ];
     }
 }

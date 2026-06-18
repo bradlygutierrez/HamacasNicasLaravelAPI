@@ -17,9 +17,13 @@ class DetalleFacturaResource extends JsonResource
         return [
             'id' => $this->id,
             'factura_id' => $this->factura_id,
-            'hamaca' => $this->hamaca ? $this->hamaca->nombre : null,
+            'inventario_hamaca_id' => $this->inventario_hamaca_id,
+            'hamaca' => $this->hamaca_nombre,
+            'descripcion' => $this->hamaca_descripcion,
             'cantidad' => $this->cantidad,
             'precio_unitario' => $this->precio_unitario,
+            'subtotal' => $this->subtotal,
+            'colores' => $this->colores_snapshot ? json_decode($this->colores_snapshot, true) : [],
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

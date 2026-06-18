@@ -14,9 +14,7 @@ class Hamaca extends Model
         'nombre',
         'descripcion',
         'categoria_id',
-        'ubicacion_id',
         'tamano_id',
-        'cantidad',
         'precio',
     ];
 
@@ -25,36 +23,21 @@ class Hamaca extends Model
         return $this->belongsTo(Categoria::class);
     }
 
-    public function ubicacion()
-    {
-        return $this->belongsTo(Ubicacion::class);
-    }
 
     public function tamano()
     {
         return $this->belongsTo(Tamano::class);
     }
 
-    public function usuarios()
-    {
-        return $this->belongsToMany(\App\Models\Usuario::class, 'usuario_hamaca', 'hamaca_id', 'usuario_id')
-                ->withTimestamps();
-    }
-
-    public function colores()
-    {
-        return $this->belongsToMany(
-            \App\Models\Color::class,
-            'hamaca_color',
-            'hamaca_id',
-            'color_id'
-        )->withTimestamps();    
-    }
-
-
     public function movimientos()
     {
         return $this->hasMany(Movimiento::class);
+    }
+
+    // Inventario
+    public function inventarios()
+    {
+        return $this->hasMany(InventarioHamaca::class);
     }
 
     public function detalleFacturas()
@@ -64,8 +47,11 @@ class Hamaca extends Model
 
     public function fotos()
     {
-        return $this->hasMany(HamacaFoto::class);
+        return $this->belongsToMany(
+            Foto::class,
+            'hamaca_foto',
+            'hamaca_id',
+            'foto_id'
+        )->withTimestamps();
     }
-
-
 }

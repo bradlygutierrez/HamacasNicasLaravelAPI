@@ -3,36 +3,48 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Usuario extends Model
+class Usuario extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UsuarioFactory> */
-    use HasFactory;
-	protected $fillable = [
+    use HasApiTokens, HasFactory, Notifiable;
+
+    protected $fillable = [
         'nombre',
         'correo',
-        'contraseña',
+        'password',
+        'foto',
         'rol',
+        'state',
     ];
 
-    // Relación muchos a muchos con Hamaca
-    public function hamacas()
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
     {
-        return $this->belongsToMany(\App\Models\Hamaca::class, 'usuario_hamaca', 'usuario_id', 'hamaca_id')
-                ->withTimestamps();
+        return [
+            'password' => 'hashed',
+            'state' => 'boolean',
+        ];
     }
 
-    // Relación uno a muchos con Movimientos
+    public function inventarios()
+    {
+        return $this->hasMany(InventarioHamaca::class);
+    }
+
     public function movimientos()
     {
         return $this->hasMany(Movimiento::class);
     }
 
-    // Relación uno a muchos con Facturas
     public function facturas()
     {
         return $this->hasMany(Factura::class);
     }
-	
 }
