@@ -733,10 +733,28 @@ Laravel `JsonResource` envuelve recursos individuales como `{ "data": { ... } }`
 - Query: `page`.
 - Respuesta `200`: `{ "data": ["Movimiento"] }`.
 
+#### `POST /api/v1/movimientos`
+
+- Auth: `almacenista` o `admin`.
+- Body requerido: `inventario_hamaca_id`, `usuario_id`, `tipo` (`entrada`, `salida`, `transferencia`), `cantidad`.
+- Body opcional: `factura_id`, `ubicacion_origen_id`, `ubicacion_destino_id`, `fecha`.
+- Respuesta `201`: `{ "message": "Movimiento creado correctamente", "data": "Movimiento" }`.
+
 #### `GET /api/v1/movimientos/{movimiento}`
 
 - Auth: cualquier usuario autenticado.
 - Respuesta `200`: `{ "data": "Movimiento" }`.
+
+#### `PUT /api/v1/movimientos/{movimiento}`
+
+- Auth: `almacenista` o `admin`.
+- Body parcial: `inventario_hamaca_id`, `usuario_id`, `factura_id`, `ubicacion_origen_id`, `ubicacion_destino_id`, `tipo`, `cantidad`, `fecha`.
+- Respuesta `200`: `{ "message": "Movimiento actualizado correctamente", "data": "Movimiento" }`.
+
+#### `DELETE /api/v1/movimientos/{movimiento}`
+
+- Auth: `admin`.
+- Respuesta `200`: `{ "message": "Movimiento eliminado correctamente" }`.
 
 ### Facturas
 
@@ -909,7 +927,6 @@ Los controladores tienen metodos que no estan expuestos:
 - `UbicacionController@destroy`: no hay `DELETE /ubicaciones/{ubicacion}` activo.
 - `ColorController@destroy`: no hay `DELETE /colores/{colore}` activo.
 - `HamacaController@destroy`: no hay `DELETE /hamacas/{hamaca}` activo.
-- `MovimientoController@store/update/destroy`: no hay `POST/PUT/DELETE /movimientos` activo.
 - `DetalleFacturaController@store/update/destroy`: no hay `POST/PUT/DELETE /detalle_facturas` activo.
 - `FacturaController` solo tiene `index/show`.
 - No hay endpoints activos para `clientes`.

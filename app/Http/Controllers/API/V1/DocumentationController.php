@@ -210,7 +210,10 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         'properties' => [
                             'id' => ['type' => 'integer'],
                             'usuario_id' => ['type' => 'integer'],
-                            'hamaca_id' => ['type' => 'integer'],
+                            'inventario_hamaca_id' => ['type' => 'integer'],
+                            'factura_id' => ['type' => 'integer', 'nullable' => true],
+                            'ubicacion_origen_id' => ['type' => 'integer', 'nullable' => true],
+                            'ubicacion_destino_id' => ['type' => 'integer', 'nullable' => true],
                             'tipo' => ['type' => 'string'],
                             'cantidad' => ['type' => 'integer'],
                             'fecha' => ['type' => 'string', 'format' => 'date'],
@@ -476,9 +479,12 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ],
                 '/v1/movimientos' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Listar movimientos', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de movimientos']]],
+                    'post' => ['tags' => ['Movimientos'], 'summary' => 'Crear movimiento', 'security' => [['bearerAuth' => []]], 'responses' => ['201' => ['description' => 'Movimiento creado']]],
                 ],
                 '/v1/movimientos/{movimiento}' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Ver movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento']]],
+                    'put' => ['tags' => ['Movimientos'], 'summary' => 'Actualizar movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento actualizado']]],
+                    'delete' => ['tags' => ['Movimientos'], 'summary' => 'Eliminar movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento eliminado']]],
                 ],
                 '/v1/movimientos/monthly-entries' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Entradas mensuales', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Total de entradas']]],

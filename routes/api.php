@@ -90,6 +90,8 @@ Route::apiResource('/v1/pantalla-permiso-roles', PantallaPermisoRolController::c
 Route::get('/v1/movimientos/monthly-entries', [MovimientoController::class, 'getMonthlyEntries'])->middleware($auth);
 Route::get('/v1/movimientos/monthly-exits', [MovimientoController::class, 'getMonthlyExits'])->middleware($auth);
 Route::apiResource('/v1/movimientos', MovimientoController::class)->only(['index', 'show'])->middleware($auth);
+Route::apiResource('/v1/movimientos', MovimientoController::class)->only(['store', 'update'])->middleware($inventoryManager);
+Route::delete('/v1/movimientos/{movimiento}', [MovimientoController::class, 'destroy'])->middleware($admin);
 
 // Facturacion y POS.
 Route::apiResource('/v1/facturas', FacturaController::class)->only(['index', 'show'])->middleware($auth);

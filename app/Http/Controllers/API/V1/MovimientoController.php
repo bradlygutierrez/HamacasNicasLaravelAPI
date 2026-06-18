@@ -6,6 +6,7 @@ use App\Http\Resources\V1\MovimientoResource;
 use App\Http\Resources\V1\MovimientoCollection;
 use App\Http\Controllers\Controller;
 use App\Models\Movimiento;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 
 class MovimientoController extends Controller
@@ -21,15 +22,17 @@ class MovimientoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-   public function store(Request $request)
-{
-    try {
+    public function store(Request $request)
+    {
         $validated = $request->validate([
-            'usuario_id' => 'required|integer',
-            'hamaca_id' => 'required|integer',
-            'tipo' => 'required|string|max:50',
-            'cantidad' => 'required|integer',
-            'fecha' => 'required|date',
+            'inventario_hamaca_id' => ['required', 'integer', 'exists:inventario_hamacas,id'],
+            'usuario_id' => ['required', 'integer', 'exists:usuarios,id'],
+            'factura_id' => ['nullable', 'integer', 'exists:facturas,id'],
+            'ubicacion_origen_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
+            'ubicacion_destino_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
+            'tipo' => ['required', Rule::in(['entrada', 'salida', 'transferencia'])],
+            'cantidad' => ['required', 'integer', 'min:1'],
+            'fecha' => ['sometimes', 'date'],
         ]);
 
         $movimiento = Movimiento::create($validated);
@@ -38,14 +41,7 @@ class MovimientoController extends Controller
             'message' => 'Movimiento creado correctamente',
             'data' => new MovimientoResource($movimiento)
         ], 201);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'message' => 'Error creando movimiento',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
     /**
      * Display the specified resource.
@@ -61,11 +57,14 @@ class MovimientoController extends Controller
     public function update(Request $request, Movimiento $movimiento)
     {
         $validated = $request->validate([
-            'usuario_id' => 'sometimes|required|integer',
-            'hamaca_id' => 'sometimes|required|integer',
-            'tipo' => 'sometimes|required|string|max:50',
-            'cantidad' => 'sometimes|required|integer',
-            'fecha' => 'sometimes|required|date',
+            'inventario_hamaca_id' => ['sometimes', 'required', 'integer', 'exists:inventario_hamacas,id'],
+            'usuario_id' => ['sometimes', 'required', 'integer', 'exists:usuarios,id'],
+            'factura_id' => ['nullable', 'integer', 'exists:facturas,id'],
+            'ubicacion_origen_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
+            'ubicacion_destino_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
+            'tipo' => ['sometimes', 'required', Rule::in(['entrada', 'salida', 'transferencia'])],
+            'cantidad' => ['sometimes', 'required', 'integer', 'min:1'],
+            'fecha' => ['sometimes', 'required', 'date'],
         ]);
 
         $movimiento->update($validated);
