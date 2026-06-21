@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -9,13 +10,21 @@ class Hamaca extends Model
 {
     /** @use HasFactory<\Database\Factories\HamacaFactory> */
     use HasFactory;
+    use SoftDeletes;
 
-	protected $fillable = [
+    protected $table = 'hamacas';
+
+    protected $fillable = [
         'nombre',
         'descripcion',
         'categoria_id',
         'tamano_id',
         'precio',
+    ];
+
+    protected $casts = [
+        'precio' => 'decimal:2',
+        'deleted_at' => 'datetime',
     ];
 
     public function categoria()
@@ -53,5 +62,10 @@ class Hamaca extends Model
             'hamaca_id',
             'foto_id'
         )->withTimestamps();
+    }
+
+    public function variantes()
+    {
+        return $this->hasMany(HamacaVariante::class, 'hamaca_id');
     }
 }

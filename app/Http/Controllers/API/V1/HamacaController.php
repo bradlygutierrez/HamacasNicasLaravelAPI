@@ -26,12 +26,16 @@ class HamacaController extends Controller
             'categoria',
             'tamano',
             'fotos',
+
+            'variantes.colores',
+            'variantes.fotos',
+
             'inventarios.colores',
             'inventarios.usuario',
             'inventarios.ubicacion',
-
+            'inventarios.variante.colores',
+            'inventarios.variante.fotos',
         ])->latest()->paginate();
-
         return new HamacaCollection($hamacas);
     }
 
@@ -98,11 +102,23 @@ class HamacaController extends Controller
      */
     public function destroy(Hamaca $hamaca)
     {
+        $hasInventario = $hamaca->inventarios()->exists();
+        $hasVariantes = $hamaca->variantes()->exists();
+
+        if ($hasInventario || $hasVariantes) {
+            $hamaca->delete();
+
+            return response()->json([
+                'message' => 'Modelo desactivado correctamente. Tiene variantes o inventario relacionado, por eso se aplicó borrado lógico.',
+            ]);
+        }
+
         $hamaca->delete();
 
-        return response()->json(['message' => 'Hamaca eliminada correctamente.']);
+        return response()->json([
+            'message' => 'Modelo eliminado correctamente.',
+        ]);
     }
-
     public function getMonthlyInventory()
     {
         $total = DB::table('inventario_hamacas')

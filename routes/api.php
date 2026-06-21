@@ -17,6 +17,7 @@ use App\Http\Controllers\API\V1\PermisoController;
 use App\Http\Controllers\API\V1\TamanoController;
 use App\Http\Controllers\API\V1\UbicacionController;
 use App\Http\Controllers\API\V1\UsuarioController;
+use App\Http\Controllers\API\V1\HamacaVarianteController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
@@ -57,13 +58,22 @@ Route::get('/v1/hamacas/monthly-inventory', [HamacaController::class, 'getMonthl
 Route::get('/v1/hamacas/{hamaca}', [HamacaController::class, 'show']);
 Route::post('/v1/hamacas', [HamacaController::class, 'store'])->middleware($admin);
 Route::put('/v1/hamacas/{hamaca}', [HamacaController::class, 'update'])->middleware($admin);
-
+Route::delete('/v1/hamacas/{hamaca}', [HamacaController::class, 'destroy'])->middleware($admin);
 // Fotos.
 Route::get('/v1/fotos', [FotoController::class, 'index']);
 Route::get('/v1/fotos/{foto}', [FotoController::class, 'show']);
 Route::post('/v1/fotos', [FotoController::class, 'store'])->middleware($admin);
 Route::put('/v1/fotos/{foto}', [FotoController::class, 'update'])->middleware($admin);
 Route::delete('/v1/fotos/{foto}', [FotoController::class, 'destroy'])->middleware($admin);
+Route::get('/v1/fotos/{foto}/copy-source', [FotoController::class, 'copySource']);
+
+//Hamaca Variante.
+Route::get('/v1/hamaca-variantes', [HamacaVarianteController::class, 'index'])->middleware($auth);
+Route::get('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'show'])->middleware($auth);
+Route::post('/v1/hamaca-variantes', [HamacaVarianteController::class, 'store'])->middleware($inventoryManager);
+Route::put('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'update'])->middleware($inventoryManager);
+Route::delete('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'destroy'])->middleware($admin);
+
 
 // Inventario fisico.
 Route::get('/v1/inventario-hamacas', [InventarioHamacaController::class, 'index'])->middleware($auth);

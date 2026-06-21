@@ -10,7 +10,7 @@ class Color extends Model
     /** @use HasFactory<\Database\Factories\ColorFactory> */
     use HasFactory;
 
-	protected $fillable = ['nombre'];
+    protected $fillable = ['nombre'];
     protected $table = 'colores';
 
     public function inventarios()
@@ -23,4 +23,13 @@ class Color extends Model
         )->withTimestamps();
     }
 
+    public function variantes()
+    {
+        return $this->belongsToMany(
+            HamacaVariante::class,
+            'hamaca_variante_color',
+            'color_id',
+            'hamaca_variante_id'
+        )->withTimestamps();
+    }
 }

@@ -30,4 +30,14 @@ class Foto extends Model
             'hamaca_id'
         )->withTimestamps();
     }
+
+    public function variantes()
+    {
+        return $this->belongsToMany(
+            HamacaVariante::class,
+            'hamaca_variante_foto',
+            'foto_id',
+            'hamaca_variante_id'
+        )->withTimestamps();
+    }
 }

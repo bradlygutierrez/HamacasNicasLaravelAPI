@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\HamacaVariante;
 use App\Models\InventarioHamaca;
 use Illuminate\Support\Facades\DB;
 
@@ -18,12 +19,41 @@ class InventarioService
     public function upsert(array $data): InventarioHamaca
     {
         return DB::transaction(function () use ($data) {
-            $composicionClave = $this->compositionKey($data['color_ids']);
+            $variante = null;
 
-            $inventario = InventarioHamaca::where('hamaca_id', $data['hamaca_id'])
+            if (!empty($data['hamaca_variante_id'])) {
+                $variante = HamacaVariante::with('colores')
+                    ->lockForUpdate()
+                    ->findOrFail($data['hamaca_variante_id']);
+
+                $hamacaId = $variante->hamaca_id;
+                $colorIds = $variante->colores->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+                $composicionClave = $variante->composicion_clave;
+            } else {
+                $hamacaId = (int) $data['hamaca_id'];
+                $colorIds = array_values(array_unique(array_map('intval', $data['color_ids'])));
+                sort($colorIds);
+
+                $composicionClave = $this->compositionKey($colorIds);
+
+                $variante = HamacaVariante::where('hamaca_id', $hamacaId)
+                    ->where('composicion_clave', $composicionClave)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$variante) {
+                    $variante = new HamacaVariante();
+                    $variante->hamaca_id = $hamacaId;
+                    $variante->composicion_clave = $composicionClave;
+                    $variante->state = true;
+                    $variante->save();
+                    $variante->colores()->sync($colorIds);
+                }
+            }
+
+            $inventario = InventarioHamaca::where('hamaca_variante_id', $variante->id)
                 ->where('usuario_id', $data['usuario_id'])
                 ->where('ubicacion_id', $data['ubicacion_id'])
-                ->where('composicion_clave', $composicionClave)
                 ->lockForUpdate()
                 ->first();
 
@@ -31,7 +61,8 @@ class InventarioService
                 $inventario->increment('cantidad', $data['cantidad']);
             } else {
                 $inventario = InventarioHamaca::create([
-                    'hamaca_id' => $data['hamaca_id'],
+                    'hamaca_id' => $hamacaId,
+                    'hamaca_variante_id' => $variante->id,
                     'usuario_id' => $data['usuario_id'],
                     'ubicacion_id' => $data['ubicacion_id'],
                     'composicion_clave' => $composicionClave,
@@ -39,9 +70,18 @@ class InventarioService
                 ]);
             }
 
-            $inventario->colores()->sync($data['color_ids']);
+            $inventario->colores()->sync($colorIds);
 
-            return $inventario->load(['hamaca.categoria', 'hamaca.tamano', 'ubicacion', 'usuario', 'colores']);
+            return $inventario->fresh([
+                'hamaca.categoria',
+                'hamaca.tamano',
+                'hamaca.fotos',
+                'variante.colores',
+                'variante.fotos',
+                'ubicacion',
+                'usuario',
+                'colores',
+            ]);
         });
     }
 
@@ -63,7 +103,16 @@ class InventarioService
                 $origen->save();
             }
 
-            return $origen->fresh(['hamaca.categoria', 'hamaca.tamano', 'ubicacion', 'usuario', 'colores']);
+            return $origen->fresh([
+                'hamaca.categoria',
+                'hamaca.tamano',
+                'hamaca.fotos',
+                'variante.colores',
+                'variante.fotos',
+                'ubicacion',
+                'usuario',
+                'colores',
+            ]);
         });
     }
 }

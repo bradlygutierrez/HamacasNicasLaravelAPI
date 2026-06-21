@@ -14,9 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class InventarioHamacaController extends Controller
 {
-    public function __construct(private readonly InventarioService $service)
-    {
-    }
+    public function __construct(private readonly InventarioService $service) {}
 
     public function index()
     {
@@ -24,6 +22,9 @@ class InventarioHamacaController extends Controller
             InventarioHamaca::with([
                 'hamaca.categoria',
                 'hamaca.tamano',
+                'hamaca.fotos',
+                'variante.colores',
+                'variante.fotos',
                 'ubicacion',
                 'usuario',
                 'colores',
@@ -44,7 +45,16 @@ class InventarioHamacaController extends Controller
     public function show(InventarioHamaca $inventarioHamaca)
     {
         return new InventarioHamacaResource(
-            $inventarioHamaca->load(['hamaca.categoria', 'hamaca.tamano', 'ubicacion', 'usuario', 'colores'])
+            $inventarioHamaca->load([
+                'hamaca.categoria',
+                'hamaca.tamano',
+                'hamaca.fotos',
+                'variante.colores',
+                'variante.fotos',
+                'ubicacion',
+                'usuario',
+                'colores',
+            ])
         );
     }
 
@@ -67,7 +77,16 @@ class InventarioHamacaController extends Controller
         return response()->json([
             'message' => 'Inventario actualizado correctamente',
             'data' => new InventarioHamacaResource(
-                $inventarioHamaca->load(['hamaca.categoria', 'hamaca.tamano', 'ubicacion', 'usuario', 'colores'])
+                $inventarioHamaca->load([
+                    'hamaca.categoria',
+                    'hamaca.tamano',
+                    'hamaca.fotos',
+                    'variante.colores',
+                    'variante.fotos',
+                    'ubicacion',
+                    'usuario',
+                    'colores',
+                ])
             ),
         ]);
     }
