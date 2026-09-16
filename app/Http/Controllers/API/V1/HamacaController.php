@@ -48,9 +48,9 @@ class HamacaController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string',
-            'categoria_id' => 'required|integer',
-            'tamano_id' => 'required|integer',
-            'precio' => 'required|numeric',
+            'categoria_id' => 'required|integer|exists:categorias,id',
+            'tamano_id' => 'required|integer|exists:tamanos,id',
+            'precio' => 'required|numeric|min:0',
         ]);
 
         $hamaca = Hamaca::create($validated);
@@ -84,9 +84,9 @@ class HamacaController extends Controller
         $validated = $request->validate([
             'nombre' => 'sometimes|string|max:100',
             'descripcion' => 'nullable|string',
-            'categoria_id' => 'sometimes|integer',
-            'tamano_id' => 'sometimes|integer',
-            'precio' => 'sometimes|numeric',
+            'categoria_id' => 'sometimes|integer|exists:categorias,id',
+            'tamano_id' => 'sometimes|integer|exists:tamanos,id',
+            'precio' => 'sometimes|numeric|min:0',
         ]);
 
         $hamaca->update($validated);
@@ -94,7 +94,7 @@ class HamacaController extends Controller
         return response()->json([
             'message' => 'Hamaca actualizada correctamente',
             'data' => new HamacaResource($hamaca)
-        ], 201);
+        ], 200);
     }
 
     /**

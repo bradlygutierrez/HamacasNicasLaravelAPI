@@ -13,44 +13,59 @@ class MovimientoApiTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_inventory_manager_can_create_update_and_delete_movimiento(): void
+    public function test_movimientos_are_read_only_audit_records(): void
     {
         $admin = $this->seedUser('admin');
         $seed = $this->seedInventory($admin->id);
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/v1/movimientos', [
+        $this->postJson('/api/v1/inventario/entradas', [
+            'hamaca_variante_id' => $seed['variante_id'],
+            'usuario_id' => $admin->id,
+            'ubicacion_id' => $seed['ubicacion_id'],
+            'cantidad' => 3,
+            'fecha' => '2026-06-18 10:00:00',
+        ])->assertCreated();
+
+        $movimientoId = DB::table('movimientos')->latest('id')->value('id');
+
+        $this->getJson('/api/v1/movimientos')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $movimientoId,
+                'tipo' => 'entrada',
+                'cantidad' => 3,
+            ]);
+
+        $this->getJson("/api/v1/movimientos/{$movimientoId}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $movimientoId)
+            ->assertJsonPath('data.tipo', 'entrada')
+            ->assertJsonPath('data.cantidad', 3);
+
+        $this->postJson('/api/v1/movimientos', [
             'inventario_hamaca_id' => $seed['inventario_id'],
             'usuario_id' => $admin->id,
             'ubicacion_destino_id' => $seed['ubicacion_id'],
             'tipo' => 'entrada',
             'cantidad' => 3,
             'fecha' => '2026-06-18 10:00:00',
-        ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('message', 'Movimiento creado correctamente')
-            ->assertJsonPath('data.inventario_hamaca_id', $seed['inventario_id'])
-            ->assertJsonPath('data.tipo', 'entrada')
-            ->assertJsonPath('data.cantidad', 3);
-
-        $movimientoId = $response->json('data.id');
+        ])->assertStatus(405);
 
         $this->putJson("/api/v1/movimientos/{$movimientoId}", [
             'cantidad' => 5,
             'tipo' => 'transferencia',
             'ubicacion_origen_id' => $seed['ubicacion_id'],
             'ubicacion_destino_id' => $seed['ubicacion_id'],
-        ])->assertOk()
-            ->assertJsonPath('data.cantidad', 5)
-            ->assertJsonPath('data.tipo', 'transferencia');
+        ])->assertStatus(405);
 
         $this->deleteJson("/api/v1/movimientos/{$movimientoId}")
-            ->assertOk()
-            ->assertJsonPath('message', 'Movimiento eliminado correctamente');
+            ->assertStatus(405);
 
-        $this->assertDatabaseMissing('movimientos', [
+        $this->assertDatabaseHas('movimientos', [
             'id' => $movimientoId,
+            'tipo' => 'entrada',
+            'cantidad' => 3,
         ]);
     }
 
@@ -106,6 +121,7 @@ class MovimientoApiTest extends TestCase
 
         $inventarioId = DB::table('inventario_hamacas')->insertGetId([
             'hamaca_id' => $hamacaId,
+            'hamaca_variante_id' => null,
             'usuario_id' => $usuarioId,
             'ubicacion_id' => $ubicacionId,
             'composicion_clave' => hash('sha256', 'movimiento-test'),
@@ -117,6 +133,43 @@ class MovimientoApiTest extends TestCase
         return [
             'inventario_id' => $inventarioId,
             'ubicacion_id' => $ubicacionId,
+            'variante_id' => $this->seedVariant($hamacaId),
         ];
+    }
+
+    private function seedVariant(int $hamacaId): int
+    {
+        $colorId = DB::table('colores')->insertGetId([
+            'nombre' => 'Movimiento '.uniqid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $compositionKey = hash('sha256', (string) $colorId);
+
+        $variantId = DB::table('hamaca_variantes')->insertGetId([
+            'hamaca_id' => $hamacaId,
+            'nombre' => null,
+            'composicion_clave' => $compositionKey,
+            'state' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('hamaca_variante_color')->insert([
+            'hamaca_variante_id' => $variantId,
+            'color_id' => $colorId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('inventario_hamacas')
+            ->where('hamaca_id', $hamacaId)
+            ->update([
+                'hamaca_variante_id' => $variantId,
+                'composicion_clave' => $compositionKey,
+            ]);
+
+        return $variantId;
     }
 }

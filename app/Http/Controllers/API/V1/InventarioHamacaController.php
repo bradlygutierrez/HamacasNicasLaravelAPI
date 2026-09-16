@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreInventarioEntradaRequest;
 use App\Http\Requests\StoreInventarioHamacaRequest;
+use App\Http\Requests\StoreInventarioSalidaRequest;
 use App\Http\Requests\TransferInventarioRequest;
 use App\Http\Resources\V1\InventarioHamacaCollection;
 use App\Http\Resources\V1\InventarioHamacaResource;
+use App\Models\HamacaVariante;
 use App\Models\InventarioHamaca;
 use App\Services\InventarioService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class InventarioHamacaController extends Controller
@@ -63,8 +66,30 @@ class InventarioHamacaController extends Controller
         $validated = $request->validated();
 
         DB::transaction(function () use ($inventarioHamaca, $validated) {
+            if (!empty($validated['hamaca_variante_id'])) {
+                $variante = HamacaVariante::with('colores')
+                    ->lockForUpdate()
+                    ->findOrFail($validated['hamaca_variante_id']);
+
+                $colorIds = $variante->colores->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+                $inventarioHamaca->update([
+                    'hamaca_id' => $variante->hamaca_id,
+                    'hamaca_variante_id' => $variante->id,
+                    'usuario_id' => $validated['usuario_id'],
+                    'ubicacion_id' => $validated['ubicacion_id'],
+                    'cantidad' => $validated['cantidad'],
+                    'composicion_clave' => $variante->composicion_clave,
+                ]);
+
+                $inventarioHamaca->colores()->sync($colorIds);
+
+                return;
+            }
+
             $inventarioHamaca->update([
                 'hamaca_id' => $validated['hamaca_id'],
+                'hamaca_variante_id' => null,
                 'usuario_id' => $validated['usuario_id'],
                 'ubicacion_id' => $validated['ubicacion_id'],
                 'cantidad' => $validated['cantidad'],
@@ -93,10 +118,46 @@ class InventarioHamacaController extends Controller
 
     public function destroy(InventarioHamaca $inventarioHamaca)
     {
+        if ($inventarioHamaca->movimientos()->exists() || $inventarioHamaca->detalleFacturas()->exists()) {
+            throw new BusinessRuleException('El inventario tiene historial y no puede eliminarse físicamente.', [
+                'inventario_hamaca_id' => ['El inventario tiene historial y no puede eliminarse físicamente.'],
+            ]);
+        }
+
         $inventarioHamaca->delete();
 
         return response()->json([
             'message' => 'Inventario eliminado correctamente.',
+        ]);
+    }
+
+    public function entrada(StoreInventarioEntradaRequest $request)
+    {
+        $inventario = $this->service->entrada(
+            $request->validated(),
+            $request->user()->id
+        );
+
+        return response()->json([
+            'message' => 'Entrada registrada correctamente.',
+            'data' => new InventarioHamacaResource($inventario),
+        ], 201);
+    }
+
+    public function salida(StoreInventarioSalidaRequest $request)
+    {
+        $validated = $request->validated();
+
+        $inventario = $this->service->salida(
+            $validated['inventario_hamaca_id'],
+            $validated['cantidad'],
+            $request->user()->id,
+            $validated['fecha'] ?? null
+        );
+
+        return response()->json([
+            'message' => 'Salida registrada correctamente.',
+            'data' => new InventarioHamacaResource($inventario),
         ]);
     }
 
@@ -107,7 +168,9 @@ class InventarioHamacaController extends Controller
         $inventario = $this->service->transfer(
             $validated['inventario_hamaca_id'],
             $validated['cantidad'],
-            $validated['ubicacion_destino_id'] ?? null
+            $validated['ubicacion_destino_id'],
+            $request->user()->id,
+            $validated['fecha'] ?? null
         );
 
         return response()->json([

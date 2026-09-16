@@ -3,6 +3,7 @@
 use App\Http\Controllers\API\V1\AuthController;
 use App\Http\Controllers\API\V1\CategoriaController;
 use App\Http\Controllers\API\V1\ColorController;
+use App\Http\Controllers\API\V1\DashboardController;
 use App\Http\Controllers\API\V1\DetalleFacturaController;
 use App\Http\Controllers\API\V1\DocumentationController;
 use App\Http\Controllers\API\V1\FacturaController;
@@ -26,7 +27,10 @@ $inventoryManager = ['api.key', 'auth:sanctum', 'role:almacenista,admin'];
 $sales = ['api.key', 'auth:sanctum', 'role:vendedor,admin'];
 
 // Autenticacion administrativa.
+Route::get('/v1/login', [AuthController::class, 'loginInfo']);
 Route::post('/v1/login', [AuthController::class, 'login']);
+// The browser must receive a session before requesting the CSRF token.
+Route::get('/v1/csrf-token', [AuthController::class, 'csrfToken'])->middleware('web');
 Route::get('/v1/me', [AuthController::class, 'me'])->middleware($auth);
 Route::post('/v1/logout', [AuthController::class, 'logout'])->middleware($auth);
 
@@ -53,8 +57,8 @@ Route::put('/v1/colores/{colore}', [ColorController::class, 'update'])->middlewa
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);
-Route::get('/v1/hamacas/detalles', [HamacaController::class, 'getHamacasWithDetails']);
-Route::get('/v1/hamacas/monthly-inventory', [HamacaController::class, 'getMonthlyInventory']);
+Route::get('/v1/hamacas/detalles', [HamacaController::class, 'getHamacasWithDetails'])->middleware($auth);
+Route::get('/v1/hamacas/monthly-inventory', [HamacaController::class, 'getMonthlyInventory'])->middleware($auth);
 Route::get('/v1/hamacas/{hamaca}', [HamacaController::class, 'show']);
 Route::post('/v1/hamacas', [HamacaController::class, 'store'])->middleware($admin);
 Route::put('/v1/hamacas/{hamaca}', [HamacaController::class, 'update'])->middleware($admin);
@@ -76,12 +80,14 @@ Route::delete('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController
 
 
 // Inventario fisico.
+Route::post('/v1/inventario/entradas', [InventarioHamacaController::class, 'entrada'])->middleware($inventoryManager);
+Route::post('/v1/inventario/salidas', [InventarioHamacaController::class, 'salida'])->middleware($inventoryManager);
+Route::post('/v1/inventario/transferencias', [InventarioHamacaController::class, 'transfer'])->middleware($inventoryManager);
 Route::get('/v1/inventario-hamacas', [InventarioHamacaController::class, 'index'])->middleware($auth);
 Route::get('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'show'])->middleware($auth);
 Route::post('/v1/inventario-hamacas', [InventarioHamacaController::class, 'store'])->middleware($inventoryManager);
 Route::put('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'update'])->middleware($inventoryManager);
 Route::delete('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'destroy'])->middleware($admin);
-Route::post('/v1/inventario-hamacas/transfer', [InventarioHamacaController::class, 'transfer'])->middleware($inventoryManager);
 
 // Usuarios administrativos.
 Route::get('/v1/usuarios', [UsuarioController::class, 'index'])->middleware($admin);
@@ -100,8 +106,11 @@ Route::apiResource('/v1/pantalla-permiso-roles', PantallaPermisoRolController::c
 Route::get('/v1/movimientos/monthly-entries', [MovimientoController::class, 'getMonthlyEntries'])->middleware($auth);
 Route::get('/v1/movimientos/monthly-exits', [MovimientoController::class, 'getMonthlyExits'])->middleware($auth);
 Route::apiResource('/v1/movimientos', MovimientoController::class)->only(['index', 'show'])->middleware($auth);
-Route::apiResource('/v1/movimientos', MovimientoController::class)->only(['store', 'update'])->middleware($inventoryManager);
-Route::delete('/v1/movimientos/{movimiento}', [MovimientoController::class, 'destroy'])->middleware($admin);
+
+// Dashboard.
+Route::get('/v1/dashboard/summary', [DashboardController::class, 'summary'])->middleware($auth);
+Route::get('/v1/dashboard/movements-by-category', [DashboardController::class, 'movementsByCategory'])->middleware($auth);
+Route::get('/v1/dashboard/categories/{categoriaId}/stats', [DashboardController::class, 'categoryStats'])->middleware($auth);
 
 // Facturacion y POS.
 Route::apiResource('/v1/facturas', FacturaController::class)->only(['index', 'show'])->middleware($auth);

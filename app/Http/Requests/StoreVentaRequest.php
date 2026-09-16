@@ -25,7 +25,7 @@ class StoreVentaRequest extends FormRequest
             'descuento' => 'nullable|numeric|min:0',
             'aplica_ir' => 'nullable|boolean',
             'items' => 'required|array|min:1',
-            'items.*.inventario_hamaca_id' => 'required|integer|exists:inventario_hamacas,id',
+            'items.*.inventario_hamaca_id' => 'required|integer|distinct|exists:inventario_hamacas,id',
             'items.*.cantidad' => 'required|integer|min:1',
         ];
     }

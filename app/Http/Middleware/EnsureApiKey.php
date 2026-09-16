@@ -16,6 +16,13 @@ class EnsureApiKey
             return $next($request);
         }
 
+        if (
+            str_starts_with((string) $request->header('Authorization'), 'Bearer ')
+            || $request->hasCookie(config('session.cookie'))
+        ) {
+            return $next($request);
+        }
+
         $providedKey = $request->header('X-API-Key');
 
         if (!$providedKey || !hash_equals($configuredKey, $providedKey)) {

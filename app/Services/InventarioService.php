@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessRuleException;
 use App\Models\HamacaVariante;
 use App\Models\InventarioHamaca;
+use App\Models\Movimiento;
 use Illuminate\Support\Facades\DB;
 
 class InventarioService
@@ -85,34 +87,149 @@ class InventarioService
         });
     }
 
-    public function transfer(int $inventarioId, int $cantidad, ?int $ubicacionDestinoId = null): InventarioHamaca
+    public function entrada(array $data, int $operadorId): InventarioHamaca
     {
-        return DB::transaction(function () use ($inventarioId, $cantidad, $ubicacionDestinoId) {
-            $origen = InventarioHamaca::with('colores')
+        return DB::transaction(function () use ($data, $operadorId) {
+            $variante = HamacaVariante::with('colores')
+                ->lockForUpdate()
+                ->findOrFail($data['hamaca_variante_id']);
+
+            $colorIds = $variante->colores->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+
+            $inventario = InventarioHamaca::where('hamaca_variante_id', $variante->id)
+                ->where('usuario_id', $data['usuario_id'])
+                ->where('ubicacion_id', $data['ubicacion_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($inventario) {
+                $inventario->increment('cantidad', $data['cantidad']);
+            } else {
+                $inventario = InventarioHamaca::create([
+                    'hamaca_id' => $variante->hamaca_id,
+                    'hamaca_variante_id' => $variante->id,
+                    'usuario_id' => $data['usuario_id'],
+                    'ubicacion_id' => $data['ubicacion_id'],
+                    'composicion_clave' => $variante->composicion_clave,
+                    'cantidad' => $data['cantidad'],
+                ]);
+            }
+
+            $inventario->colores()->sync($colorIds);
+
+            Movimiento::create([
+                'inventario_hamaca_id' => $inventario->id,
+                'usuario_id' => $operadorId,
+                'ubicacion_destino_id' => $data['ubicacion_id'],
+                'tipo' => 'entrada',
+                'cantidad' => $data['cantidad'],
+                'fecha' => $data['fecha'] ?? now(),
+            ]);
+
+            return $this->loadInventario($inventario);
+        });
+    }
+
+    public function salida(int $inventarioId, int $cantidad, int $operadorId, ?string $fecha = null): InventarioHamaca
+    {
+        return DB::transaction(function () use ($inventarioId, $cantidad, $operadorId, $fecha) {
+            $inventario = InventarioHamaca::with(['variante.colores', 'colores'])
                 ->lockForUpdate()
                 ->findOrFail($inventarioId);
 
-            if ($origen->cantidad < $cantidad) {
-                throw new \RuntimeException('Stock insuficiente.');
+            $this->ensureStock($inventario, $cantidad);
+
+            $inventario->decrement('cantidad', $cantidad);
+
+            Movimiento::create([
+                'inventario_hamaca_id' => $inventario->id,
+                'usuario_id' => $operadorId,
+                'ubicacion_origen_id' => $inventario->ubicacion_id,
+                'tipo' => 'salida',
+                'cantidad' => $cantidad,
+                'fecha' => $fecha ?? now(),
+            ]);
+
+            return $this->loadInventario($inventario);
+        });
+    }
+
+    public function transfer(int $inventarioId, int $cantidad, int $ubicacionDestinoId, int $operadorId, ?string $fecha = null): InventarioHamaca
+    {
+        return DB::transaction(function () use ($inventarioId, $cantidad, $ubicacionDestinoId, $operadorId, $fecha) {
+            $origen = InventarioHamaca::with(['variante.colores', 'colores'])
+                ->lockForUpdate()
+                ->findOrFail($inventarioId);
+
+            $this->ensureStock($origen, $cantidad);
+
+            if ((int) $origen->ubicacion_id === $ubicacionDestinoId) {
+                throw new BusinessRuleException('La ubicación destino debe ser diferente a la ubicación origen.', [
+                    'ubicacion_destino_id' => ['La ubicación destino debe ser diferente a la ubicación origen.'],
+                ], 422);
             }
+
+            $destino = InventarioHamaca::where('hamaca_variante_id', $origen->hamaca_variante_id)
+                ->where('usuario_id', $origen->usuario_id)
+                ->where('ubicacion_id', $ubicacionDestinoId)
+                ->lockForUpdate()
+                ->first();
 
             $origen->decrement('cantidad', $cantidad);
 
-            if ($ubicacionDestinoId !== null) {
-                $origen->ubicacion_id = $ubicacionDestinoId;
-                $origen->save();
+            if ($destino) {
+                $destino->increment('cantidad', $cantidad);
+            } else {
+                $destino = InventarioHamaca::create([
+                    'hamaca_id' => $origen->hamaca_id,
+                    'hamaca_variante_id' => $origen->hamaca_variante_id,
+                    'usuario_id' => $origen->usuario_id,
+                    'ubicacion_id' => $ubicacionDestinoId,
+                    'composicion_clave' => $origen->composicion_clave,
+                    'cantidad' => $cantidad,
+                ]);
             }
 
-            return $origen->fresh([
-                'hamaca.categoria',
-                'hamaca.tamano',
-                'hamaca.fotos',
-                'variante.colores',
-                'variante.fotos',
-                'ubicacion',
-                'usuario',
-                'colores',
+            $colorIds = $origen->variante
+                ? $origen->variante->colores->pluck('id')->all()
+                : $origen->colores->pluck('id')->all();
+
+            $destino->colores()->sync($colorIds);
+
+            Movimiento::create([
+                'inventario_hamaca_id' => $origen->id,
+                'usuario_id' => $operadorId,
+                'ubicacion_origen_id' => $origen->ubicacion_id,
+                'ubicacion_destino_id' => $ubicacionDestinoId,
+                'tipo' => 'transferencia',
+                'cantidad' => $cantidad,
+                'fecha' => $fecha ?? now(),
             ]);
+
+            return $this->loadInventario($origen);
         });
+    }
+
+    private function ensureStock(InventarioHamaca $inventario, int $cantidad): void
+    {
+        if ($inventario->cantidad < $cantidad) {
+            throw new BusinessRuleException('Stock insuficiente.', [
+                'cantidad' => ["Solo hay {$inventario->cantidad} unidades disponibles."],
+            ]);
+        }
+    }
+
+    private function loadInventario(InventarioHamaca $inventario): InventarioHamaca
+    {
+        return $inventario->fresh([
+            'hamaca.categoria',
+            'hamaca.tamano',
+            'hamaca.fotos',
+            'variante.colores',
+            'variante.fotos',
+            'ubicacion',
+            'usuario',
+            'colores',
+        ]);
     }
 }

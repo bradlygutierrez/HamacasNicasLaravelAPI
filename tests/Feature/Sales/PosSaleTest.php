@@ -7,10 +7,12 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Support\BuildsInventoryFixtures;
 use Tests\TestCase;
 
 class PosSaleTest extends TestCase
 {
+    use BuildsInventoryFixtures;
     use DatabaseTransactions;
 
     public function test_pos_sale_creates_invoice_and_reduces_stock(): void
@@ -72,12 +74,90 @@ class PosSaleTest extends TestCase
                     'cantidad' => 999,
                 ],
             ],
-        ])->assertStatus(500);
+        ])->assertStatus(409)
+            ->assertJsonPath('errors.items.0', 'Solo hay 4 unidades disponibles.');
 
         $this->assertDatabaseHas('inventario_hamacas', [
             'id' => $seed['inventario_id'],
             'cantidad' => 4,
         ]);
+    }
+
+    public function test_pos_sale_rejects_repeated_inventory_that_exceeds_total_stock(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+        $facturasBefore = DB::table('facturas')->count();
+
+        $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'items' => [
+                [
+                    'inventario_hamaca_id' => $seed['inventario_id'],
+                    'cantidad' => 4,
+                ],
+                [
+                    'inventario_hamaca_id' => $seed['inventario_id'],
+                    'cantidad' => 4,
+                ],
+            ],
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('items.1.inventario_hamaca_id');
+
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 5,
+        ]);
+    }
+
+    public function test_pos_sale_rejects_discount_greater_than_subtotal(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+        $facturasBefore = DB::table('facturas')->count();
+
+        $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'descuento' => 5000,
+            'items' => [
+                [
+                    'inventario_hamaca_id' => $seed['inventario_id'],
+                    'cantidad' => 1,
+                ],
+            ],
+        ])->assertStatus(409)
+            ->assertJsonPath('errors.descuento.0', 'El descuento no puede ser mayor que el subtotal.');
+
+        $this->assertSame($facturasBefore, DB::table('facturas')->count());
+    }
+
+    public function test_invoice_number_uses_created_invoice_id(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+
+        $response = $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'items' => [
+                [
+                    'inventario_hamaca_id' => $seed['inventario_id'],
+                    'cantidad' => 1,
+                ],
+            ],
+        ])->assertCreated();
+
+        $id = $response->json('data.id');
+
+        $response->assertJsonPath('data.numero', 'FAC-'.str_pad((string) $id, 6, '0', STR_PAD_LEFT));
     }
 
     private function seedVendedor(): Usuario

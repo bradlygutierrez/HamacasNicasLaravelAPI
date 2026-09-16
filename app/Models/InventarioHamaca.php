@@ -55,4 +55,14 @@ class InventarioHamaca extends Model
     {
         return $this->belongsTo(HamacaVariante::class, 'hamaca_variante_id');
     }
+
+    public function movimientos()
+    {
+        return $this->hasMany(Movimiento::class, 'inventario_hamaca_id');
+    }
+
+    public function detalleFacturas()
+    {
+        return $this->hasMany(DetalleFactura::class, 'inventario_hamaca_id');
+    }
 }

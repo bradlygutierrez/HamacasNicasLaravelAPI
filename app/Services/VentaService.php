@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessRuleException;
 use App\Models\Factura;
 use App\Models\InventarioHamaca;
 use App\Models\Movimiento;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 class VentaService
 {
@@ -17,7 +17,13 @@ class VentaService
     public function crearVenta(array $data): Factura
     {
         return DB::transaction(function () use ($data) {
-            $items = collect($data['items']);
+            $items = collect($data['items'])
+                ->groupBy('inventario_hamaca_id')
+                ->map(fn ($lines, $inventarioId) => [
+                    'inventario_hamaca_id' => (int) $inventarioId,
+                    'cantidad' => (int) $lines->sum('cantidad'),
+                ])
+                ->values();
             $subtotal = 0.0;
             $detalleData = [];
 
@@ -31,11 +37,15 @@ class VentaService
                 $inventario = $inventarios->get($item['inventario_hamaca_id']);
 
                 if (!$inventario) {
-                    throw new RuntimeException('Inventario no encontrado.');
+                    throw new BusinessRuleException('Inventario no encontrado.', [
+                        'items' => ['El inventario seleccionado no existe.'],
+                    ], 422);
                 }
 
                 if ($inventario->cantidad < $item['cantidad']) {
-                    throw new RuntimeException('Stock insuficiente.');
+                    throw new BusinessRuleException('Stock insuficiente.', [
+                        'items' => ["Solo hay {$inventario->cantidad} unidades disponibles."],
+                    ]);
                 }
 
                 $precioUnitario = (float) $inventario->hamaca->precio;
@@ -51,7 +61,14 @@ class VentaService
             }
 
             $descuento = round((float) ($data['descuento'] ?? 0), 2);
-            $base = max(0, round($subtotal - $descuento, 2));
+
+            if ($descuento > round($subtotal, 2)) {
+                throw new BusinessRuleException('El descuento no puede ser mayor que el subtotal.', [
+                    'descuento' => ['El descuento no puede ser mayor que el subtotal.'],
+                ]);
+            }
+
+            $base = round($subtotal - $descuento, 2);
             $tasaIva = 0.15;
             $aplicaIr = (bool) ($data['aplica_ir'] ?? false);
             $tasaIr = 0.02;
@@ -60,7 +77,7 @@ class VentaService
             $total = round($base + $montoIva - $montoIr, 2);
 
             $factura = Factura::create([
-                'numero' => $this->generateInvoiceNumber(),
+                'numero' => 'PENDING-'.uniqid('', true),
                 'cliente_id' => $data['cliente_id'] ?? null,
                 'vendedor_id' => $data['vendedor_id'],
                 'canal' => $data['canal'],
@@ -80,6 +97,9 @@ class VentaService
                 'total' => $total,
                 'fecha' => now(),
             ]);
+
+            $factura->numero = $this->generateInvoiceNumber($factura->id);
+            $factura->save();
 
             foreach ($detalleData as $linea) {
                 $inventario = $linea['inventario'];
@@ -115,10 +135,8 @@ class VentaService
         });
     }
 
-    private function generateInvoiceNumber(): string
+    private function generateInvoiceNumber(int $facturaId): string
     {
-        $next = (Factura::max('id') ?? 0) + 1;
-
-        return 'FAC-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+        return 'FAC-' . str_pad((string) $facturaId, 6, '0', STR_PAD_LEFT);
     }
 }

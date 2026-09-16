@@ -16,7 +16,8 @@ class TransferInventarioRequest extends FormRequest
         return [
             'inventario_hamaca_id' => 'required|integer|exists:inventario_hamacas,id',
             'cantidad' => 'required|integer|min:1',
-            'ubicacion_destino_id' => 'nullable|integer|exists:ubicaciones,id',
+            'ubicacion_destino_id' => 'required|integer|exists:ubicaciones,id',
+            'fecha' => 'sometimes|date',
         ];
     }
 }

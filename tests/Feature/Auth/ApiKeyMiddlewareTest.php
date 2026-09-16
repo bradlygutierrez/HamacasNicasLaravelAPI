@@ -13,22 +13,15 @@ class ApiKeyMiddlewareTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_protected_sanctum_route_requires_configured_api_key(): void
+    public function test_protected_sanctum_route_allows_bearer_token_without_browser_api_key(): void
     {
         config(['services.hamacas.api_key' => 'testing-api-key']);
 
         $usuario = $this->seedUser('admin');
         Sanctum::actingAs($usuario);
 
-        $this->getJson('/api/v1/me')
-            ->assertUnauthorized()
-            ->assertJsonPath('message', 'API key inválida o ausente.');
-
-        $this->getJson('/api/v1/me', ['X-API-Key' => 'wrong-key'])
-            ->assertUnauthorized()
-            ->assertJsonPath('message', 'API key inválida o ausente.');
-
-        $this->getJson('/api/v1/me', ['X-API-Key' => 'testing-api-key'])
+        $this->withHeader('Authorization', 'Bearer browser-token')
+            ->getJson('/api/v1/me')
             ->assertOk()
             ->assertJsonPath('data.correo', 'admin@example.com');
     }

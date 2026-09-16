@@ -101,8 +101,6 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         'type' => 'object',
                         'properties' => [
                             'message' => ['type' => 'string'],
-                            'access_token' => ['type' => 'string'],
-                            'token_type' => ['type' => 'string', 'example' => 'Bearer'],
                             'user' => ['$ref' => '#/components/schemas/Usuario'],
                         ],
                     ],
@@ -302,6 +300,9 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         ],
                     ],
                 ],
+                '/v1/csrf-token' => [
+                    'get' => ['tags' => ['Autenticacion'], 'summary' => 'Obtener token CSRF de la sesion web', 'responses' => ['200' => ['description' => 'Token CSRF']]],
+                ],
                 '/v1/me' => [
                     'get' => [
                         'tags' => ['Auth'],
@@ -408,10 +409,10 @@ HTML, 200, ['Content-Type' => 'text/html']);
                     'post' => ['tags' => ['Hamacas'], 'summary' => 'Crear hamaca', 'security' => [['bearerAuth' => []]], 'responses' => ['201' => ['description' => 'Hamaca creada']]],
                 ],
                 '/v1/hamacas/detalles' => [
-                    'get' => ['tags' => ['Hamacas'], 'summary' => 'Catalogo de hamacas con detalles', 'responses' => ['200' => ['description' => 'Listado detallado']]],
+                    'get' => ['tags' => ['Hamacas'], 'summary' => 'Catalogo administrativo de hamacas con detalles', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado detallado']]],
                 ],
                 '/v1/hamacas/monthly-inventory' => [
-                    'get' => ['tags' => ['Hamacas'], 'summary' => 'Inventario inicial mensual', 'responses' => ['200' => ['description' => 'Total de inventario']]],
+                    'get' => ['tags' => ['Hamacas'], 'summary' => 'Inventario inicial mensual', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Total de inventario']]],
                 ],
                 '/v1/hamacas/{hamaca}' => [
                     'get' => ['tags' => ['Hamacas'], 'summary' => 'Ver hamaca', 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['200' => ['description' => 'Hamaca']]],
@@ -435,8 +436,14 @@ HTML, 200, ['Content-Type' => 'text/html']);
                     'put' => ['tags' => ['Inventario'], 'summary' => 'Actualizar inventario', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('inventarioHamaca')], 'responses' => ['200' => ['description' => 'Inventario actualizado']]],
                     'delete' => ['tags' => ['Inventario'], 'summary' => 'Eliminar inventario', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('inventarioHamaca')], 'responses' => ['200' => ['description' => 'Inventario eliminado']]],
                 ],
-                '/v1/inventario-hamacas/transfer' => [
-                    'post' => ['tags' => ['Inventario'], 'summary' => 'Transferir inventario', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Transferencia ejecutada']]],
+                '/v1/inventario/entradas' => [
+                    'post' => ['tags' => ['Inventario'], 'summary' => 'Registrar entrada atómica de inventario', 'security' => [['bearerAuth' => []]], 'responses' => ['201' => ['description' => 'Entrada registrada'], '409' => ['description' => 'Conflicto de negocio']]],
+                ],
+                '/v1/inventario/salidas' => [
+                    'post' => ['tags' => ['Inventario'], 'summary' => 'Registrar salida atómica de inventario', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Salida registrada'], '409' => ['description' => 'Conflicto de negocio']]],
+                ],
+                '/v1/inventario/transferencias' => [
+                    'post' => ['tags' => ['Inventario'], 'summary' => 'Registrar transferencia atómica de inventario', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Transferencia ejecutada'], '409' => ['description' => 'Conflicto de negocio']]],
                 ],
                 '/v1/usuarios' => [
                     'get' => ['tags' => ['Usuarios'], 'summary' => 'Listar usuarios', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de usuarios']]],
@@ -478,19 +485,25 @@ HTML, 200, ['Content-Type' => 'text/html']);
                     'delete' => ['tags' => ['Permisos'], 'summary' => 'Eliminar acceso por rol', 'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]], 'parameters' => [$this->pathParameter('pantalla_permiso_role')], 'responses' => ['200' => ['description' => 'Acceso eliminado']]],
                 ],
                 '/v1/movimientos' => [
-                    'get' => ['tags' => ['Movimientos'], 'summary' => 'Listar movimientos', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de movimientos']]],
-                    'post' => ['tags' => ['Movimientos'], 'summary' => 'Crear movimiento', 'security' => [['bearerAuth' => []]], 'responses' => ['201' => ['description' => 'Movimiento creado']]],
+                    'get' => ['tags' => ['Movimientos'], 'summary' => 'Listar movimientos de auditoria', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de movimientos']]],
                 ],
                 '/v1/movimientos/{movimiento}' => [
-                    'get' => ['tags' => ['Movimientos'], 'summary' => 'Ver movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento']]],
-                    'put' => ['tags' => ['Movimientos'], 'summary' => 'Actualizar movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento actualizado']]],
-                    'delete' => ['tags' => ['Movimientos'], 'summary' => 'Eliminar movimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento eliminado']]],
+                    'get' => ['tags' => ['Movimientos'], 'summary' => 'Ver movimiento de auditoria', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento']]],
                 ],
                 '/v1/movimientos/monthly-entries' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Entradas mensuales', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Total de entradas']]],
                 ],
                 '/v1/movimientos/monthly-exits' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Salidas mensuales', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Total de salidas']]],
+                ],
+                '/v1/dashboard/summary' => [
+                    'get' => ['tags' => ['Dashboard'], 'summary' => 'Resumen real de inventario y movimientos', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Metricas del dashboard']]],
+                ],
+                '/v1/dashboard/movements-by-category' => [
+                    'get' => ['tags' => ['Dashboard'], 'summary' => 'Movimientos por categoria', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Movimientos agrupados']]],
+                ],
+                '/v1/dashboard/categories/{categoriaId}/stats' => [
+                    'get' => ['tags' => ['Dashboard'], 'summary' => 'Estadisticas de inventario por categoria', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('categoriaId')], 'responses' => ['200' => ['description' => 'Estadisticas de categoria']]],
                 ],
                 '/v1/facturas' => [
                     'get' => ['tags' => ['Facturas'], 'summary' => 'Listado de facturas', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de facturas']]],

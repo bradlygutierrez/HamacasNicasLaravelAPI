@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1;
 
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\HamacaVarianteResource;
 use App\Models\Foto;
@@ -148,6 +149,18 @@ class HamacaVarianteController extends Controller
                     abort(422, 'Ya existe una variante con esa composición de colores.');
                 }
 
+                if ($hamacaVariante->composicion_clave !== $composicionClave
+                    && $this->variantHasInventoryHistory($hamacaVariante)) {
+                    throw new BusinessRuleException(
+                        'La variante ya tiene inventario o historial; crea una nueva variante para otra composición.',
+                        [
+                            'color_ids' => [
+                                'La variante ya tiene inventario o historial; crea una nueva variante para otra composición.',
+                            ],
+                        ]
+                    );
+                }
+
                 $hamacaVariante->composicion_clave = $composicionClave;
                 $hamacaVariante->save();
 
@@ -232,5 +245,16 @@ class HamacaVarianteController extends Controller
 
             $foto->variantes()->syncWithoutDetaching([$variante->id]);
         }
+    }
+
+    private function variantHasInventoryHistory(HamacaVariante $variante): bool
+    {
+        return $variante->inventarios()
+            ->where(function ($query) {
+                $query->where('cantidad', '>=', 0)
+                    ->orWhereHas('movimientos')
+                    ->orWhereHas('detalleFacturas');
+            })
+            ->exists();
     }
 }
