@@ -48,6 +48,16 @@ class Usuario extends Authenticatable
         return $this->hasMany(Factura::class);
     }
 
+    public function materialPrecios()
+    {
+        return $this->hasMany(MaterialPrecio::class);
+    }
+
+    public function servicioPrecios()
+    {
+        return $this->hasMany(ServicioPrecio::class);
+    }
+
     public function accesosPorRol()
     {
         return $this->hasMany(PantallaPermisoRol::class, 'rol', 'rol');

@@ -19,12 +19,17 @@ use App\Http\Controllers\API\V1\TamanoController;
 use App\Http\Controllers\API\V1\UbicacionController;
 use App\Http\Controllers\API\V1\UsuarioController;
 use App\Http\Controllers\API\V1\HamacaVarianteController;
+use App\Http\Controllers\API\V1\MaterialController;
+use App\Http\Controllers\API\V1\ProcesoProduccionController;
+use App\Http\Controllers\API\V1\ServicioAdicionalController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
 $admin = ['api.key', 'auth:sanctum', 'role:admin'];
 $inventoryManager = ['api.key', 'auth:sanctum', 'role:almacenista,admin'];
 $sales = ['api.key', 'auth:sanctum', 'role:vendedor,admin'];
+$productionCatalogView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,socio'];
+$serviceCatalogView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,almacenista'];
 
 // Autenticacion administrativa.
 Route::get('/v1/login', [AuthController::class, 'loginInfo']);
@@ -54,6 +59,25 @@ Route::get('/v1/colores', [ColorController::class, 'index']);
 Route::get('/v1/colores/{colore}', [ColorController::class, 'show']);
 Route::post('/v1/colores', [ColorController::class, 'store'])->middleware($admin);
 Route::put('/v1/colores/{colore}', [ColorController::class, 'update'])->middleware($admin);
+
+// Catalogos de produccion y servicios adicionales.
+Route::get('/v1/materiales', [MaterialController::class, 'index'])->middleware($productionCatalogView);
+Route::get('/v1/materiales/{material}', [MaterialController::class, 'show'])->middleware($productionCatalogView);
+Route::post('/v1/materiales', [MaterialController::class, 'store'])->middleware($admin);
+Route::put('/v1/materiales/{material}', [MaterialController::class, 'update'])->middleware($admin);
+Route::delete('/v1/materiales/{material}', [MaterialController::class, 'destroy'])->middleware($admin);
+
+Route::get('/v1/procesos-produccion', [ProcesoProduccionController::class, 'index'])->middleware($productionCatalogView);
+Route::get('/v1/procesos-produccion/{procesoProduccion}', [ProcesoProduccionController::class, 'show'])->middleware($productionCatalogView);
+Route::post('/v1/procesos-produccion', [ProcesoProduccionController::class, 'store'])->middleware($admin);
+Route::put('/v1/procesos-produccion/{procesoProduccion}', [ProcesoProduccionController::class, 'update'])->middleware($admin);
+Route::delete('/v1/procesos-produccion/{procesoProduccion}', [ProcesoProduccionController::class, 'destroy'])->middleware($admin);
+
+Route::get('/v1/servicios-adicionales', [ServicioAdicionalController::class, 'index'])->middleware($serviceCatalogView);
+Route::get('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalController::class, 'show'])->middleware($serviceCatalogView);
+Route::post('/v1/servicios-adicionales', [ServicioAdicionalController::class, 'store'])->middleware($admin);
+Route::put('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalController::class, 'update'])->middleware($admin);
+Route::delete('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalController::class, 'destroy'])->middleware($admin);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);
