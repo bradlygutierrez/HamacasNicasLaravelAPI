@@ -12,12 +12,12 @@ class ProformaRequest extends FormRequest
     {
         return [
             'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'nombre_cliente' => 'required|string|max:150',
+            'nombre_cliente' => 'required_without:cliente_id|string|max:150',
             'ruc' => 'nullable|string|max:50', 'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:50', 'correo' => 'nullable|email|max:150',
             'vendedor_id' => 'nullable|integer|exists:usuarios,id',
             'fecha' => 'nullable|date', 'valida_hasta' => 'nullable|date', 'observaciones' => 'nullable|string',
-            'descuento' => 'nullable|numeric|min:0', 'aplica_iva' => 'nullable|boolean', 'tasa_iva' => 'nullable|numeric|between:0,100',
+            'descuento' => 'nullable|numeric|min:0', 'descuento_global' => 'nullable|numeric|min:0', 'aplica_iva' => 'nullable|boolean', 'tasa_iva' => 'nullable|numeric|between:0,100',
             'aplica_ir' => 'nullable|boolean', 'tasa_ir' => 'nullable|numeric|between:0,100', 'tasa_comision_vendedor' => 'nullable|numeric|between:0,100',
             'detalles' => 'required|array|min:1',
             'detalles.*.hamaca_id' => 'required|integer|exists:hamacas,id',

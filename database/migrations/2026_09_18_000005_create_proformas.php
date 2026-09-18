@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('fecha')->index();
             $table->date('valida_hasta')->nullable();
             $table->text('observaciones')->nullable();
-            foreach (['subtotal_productos', 'subtotal_servicios', 'subtotal_bruto', 'descuento', 'base_neta', 'monto_iva', 'monto_ir', 'monto_comision_vendedor', 'costo_materiales_estimado', 'costo_mano_de_obra_estimado', 'costo_servicios_base_estimado', 'costo_total_estimado', 'costo_compra_estimado', 'utilidad_estimada', 'total'] as $column) {
+            foreach (['subtotal_productos', 'subtotal_servicios', 'subtotal_bruto', 'descuento_global', 'descuento_lineas', 'descuento_total', 'base_neta', 'monto_iva', 'monto_ir', 'monto_comision_vendedor', 'costo_materiales_estimado', 'costo_mano_de_obra_estimado', 'costo_servicios_base_estimado', 'costo_total_estimado', 'costo_compra_estimado', 'utilidad_estimada', 'total'] as $column) {
                 $table->decimal($column, 14, 2)->default(0);
             }
             $table->boolean('aplica_iva')->default(false);
@@ -77,6 +77,7 @@ return new class extends Migration
                 $table->decimal('precio_unitario', 14, 2);
                 $table->decimal('descuento', 14, 2)->default(0);
                 $table->decimal('subtotal', 14, 2)->default(0);
+                $table->decimal('costo_base_unitario_override', 14, 2)->nullable();
                 $table->decimal('costo_base_unitario_snapshot', 14, 2)->default(0);
                 $table->decimal('costo_unitario_estimado', 14, 2)->default(0);
                 $table->decimal('costo_total_estimado', 14, 2)->default(0);

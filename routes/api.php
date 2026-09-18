@@ -92,6 +92,7 @@ Route::put('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFor
 Route::get('/v1/servicios-adicionales/{servicioAdicional}/costos', [ServicioFormulaController::class, 'costs'])->middleware($formulaCostView);
 Route::get('/v1/formulas', [FormulaController::class, 'index'])->middleware($recipeView);
 Route::get('/v1/clientes', [ClienteController::class, 'index'])->middleware($proformaView);
+Route::get('/v1/proformas/productos', [ProformaController::class, 'products'])->middleware($proformaView);
 Route::get('/v1/proformas', [ProformaController::class, 'index'])->middleware($proformaView);
 Route::post('/v1/proformas/calcular', [ProformaController::class, 'calculate'])->middleware($proformaView);
 Route::post('/v1/proformas', [ProformaController::class, 'store'])->middleware($proformaWrite);

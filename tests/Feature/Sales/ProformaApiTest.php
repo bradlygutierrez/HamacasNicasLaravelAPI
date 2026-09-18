@@ -34,6 +34,28 @@ class ProformaApiTest extends TestCase
         $this->assertEquals(1000, $response->json('data.values.base_neta')); $this->assertEquals(150, $response->json('data.values.monto_iva')); $this->assertEquals(20, $response->json('data.values.monto_ir')); $this->assertEquals(1130, $response->json('data.values.total')); $this->assertArrayNotHasKey('analisis_interno', $response->json('data'));
     }
 
+    public function test_vendor_values_do_not_expose_internal_cost_keys_but_include_commission(): void
+    {
+        $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($vendor);
+        $values = $this->postJson('/api/v1/proformas/calcular', $this->payload($hamaca, null))->json('data.values');
+        foreach (['costo_materiales_estimado', 'costo_mano_de_obra_estimado', 'costo_total_estimado', 'costo_compra_estimado', 'utilidad_estimada'] as $key) $this->assertArrayNotHasKey($key, $values);
+        $this->assertArrayHasKey('tasa_comision_vendedor', $values); $this->assertArrayHasKey('monto_comision_vendedor', $values);
+    }
+
+    public function test_line_service_and_global_discounts_are_not_applied_twice(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Servicio descuento', 'alcance' => 'producto', 'metodo_calculo' => 'fijo', 'precio_venta_actual' => 100, 'costo_actual' => 0, 'state' => true]); Sanctum::actingAs($admin);
+        $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['descuento'] = 100; $payload['detalles'][0]['servicios'] = [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 100, 'descuento' => 10]]; $payload['descuento_global'] = 50;
+        $preview = $this->postJson('/api/v1/proformas/calcular', $payload)->json('data.values'); $id = $this->postJson('/api/v1/proformas', $payload)->json('data.id'); $emitted = $this->postJson("/api/v1/proformas/{$id}/emitir")->json('data');
+        $this->assertEquals((float) $preview['base_neta'], (float) $emitted['base_neta']); $this->assertEquals((float) $preview['total'], (float) $emitted['total']);
+    }
+
+    public function test_variant_must_belong_to_selected_hamaca(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $other = $this->hamacaWithRecipe(); $variant = $other->variantes()->create(['nombre' => 'Otra', 'composicion_clave' => 'otra', 'state' => true]); Sanctum::actingAs($admin);
+        $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['hamaca_variante_id'] = $variant->id; $this->postJson('/api/v1/proformas', $payload)->assertStatus(422);
+    }
+
     public function test_emit_freezes_snapshots_and_retry_does_not_change_number(): void
     {
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin);
