@@ -25,6 +25,8 @@ use App\Http\Controllers\API\V1\ServicioAdicionalController;
 use App\Http\Controllers\API\V1\RecetaHamacaController;
 use App\Http\Controllers\API\V1\ServicioFormulaController;
 use App\Http\Controllers\API\V1\FormulaController;
+use App\Http\Controllers\API\V1\ClienteController;
+use App\Http\Controllers\API\V1\ProformaController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
@@ -35,6 +37,8 @@ $productionCatalogView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,soc
 $serviceCatalogView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,almacenista'];
 $recipeView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,socio'];
 $formulaCostView = ['api.key', 'auth:sanctum', 'role:admin,socio'];
+$proformaView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,socio'];
+$proformaWrite = ['api.key', 'auth:sanctum', 'role:admin,vendedor'];
 
 // Autenticacion administrativa.
 Route::get('/v1/login', [AuthController::class, 'loginInfo']);
@@ -87,6 +91,15 @@ Route::get('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFor
 Route::put('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFormulaController::class, 'update'])->middleware($admin);
 Route::get('/v1/servicios-adicionales/{servicioAdicional}/costos', [ServicioFormulaController::class, 'costs'])->middleware($formulaCostView);
 Route::get('/v1/formulas', [FormulaController::class, 'index'])->middleware($recipeView);
+Route::get('/v1/clientes', [ClienteController::class, 'index'])->middleware($proformaView);
+Route::get('/v1/proformas/productos', [ProformaController::class, 'products'])->middleware($proformaView);
+Route::get('/v1/proformas', [ProformaController::class, 'index'])->middleware($proformaView);
+Route::post('/v1/proformas/calcular', [ProformaController::class, 'calculate'])->middleware($proformaView);
+Route::post('/v1/proformas', [ProformaController::class, 'store'])->middleware($proformaWrite);
+Route::get('/v1/proformas/{proforma}', [ProformaController::class, 'show'])->middleware($proformaView);
+Route::put('/v1/proformas/{proforma}', [ProformaController::class, 'update'])->middleware($proformaWrite);
+Route::post('/v1/proformas/{proforma}/emitir', [ProformaController::class, 'emit'])->middleware($proformaWrite);
+Route::post('/v1/proformas/{proforma}/estado', [ProformaController::class, 'status'])->middleware($proformaWrite);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);

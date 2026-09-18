@@ -67,6 +67,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ['name' => 'Facturas'],
                 ['name' => 'POS'],
                 ['name' => 'Producción'],
+                ['name' => 'Proformas'],
                 ['name' => 'Documentacion'],
             ],
             'components' => [
@@ -563,6 +564,23 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ],
                 '/v1/servicios-adicionales/{servicioAdicional}/costos' => [
                     'get' => ['tags' => ['Producción'], 'summary' => 'Costo productivo del servicio', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('servicioAdicional')], 'responses' => ['200' => ['description' => 'Costos']]],
+                ],
+                '/v1/clientes' => [
+                    'get' => ['tags' => ['Proformas'], 'summary' => 'Buscar clientes', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Clientes paginados']]],
+                ],
+                '/v1/proformas' => [
+                    'get' => ['tags' => ['Proformas'], 'summary' => 'Listar proformas', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Proformas paginadas']]],
+                    'post' => ['tags' => ['Proformas'], 'summary' => 'Crear borrador', 'security' => [['bearerAuth' => []]], 'responses' => ['201' => ['description' => 'Borrador creado']]],
+                ],
+                '/v1/proformas/calcular' => [
+                    'post' => ['tags' => ['Proformas'], 'summary' => 'Calcular proforma sin persistir', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Cálculo']]],
+                ],
+                '/v1/proformas/{proforma}' => [
+                    'get' => ['tags' => ['Proformas'], 'summary' => 'Ver proforma', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma')], 'responses' => ['200' => ['description' => 'Proforma']]],
+                    'put' => ['tags' => ['Proformas'], 'summary' => 'Actualizar borrador', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma')], 'responses' => ['200' => ['description' => 'Proforma actualizada'], '409' => ['description' => 'Proforma no editable']]],
+                ],
+                '/v1/proformas/{proforma}/emitir' => [
+                    'post' => ['tags' => ['Proformas'], 'summary' => 'Emitir proforma', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma')], 'responses' => ['200' => ['description' => 'Proforma emitida']]],
                 ],
                 '/v1/documentation' => [
                     'get' => ['tags' => ['Documentacion'], 'summary' => 'Swagger UI', 'responses' => ['200' => ['description' => 'Interfaz Swagger']]],
