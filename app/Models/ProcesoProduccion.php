@@ -21,4 +21,14 @@ class ProcesoProduccion extends Model
     protected $casts = [
         'state' => 'boolean',
     ];
+
+    public function recetas()
+    {
+        return $this->hasMany(RecetaManoObra::class);
+    }
+
+    public function servicios()
+    {
+        return $this->hasMany(ServicioManoObra::class);
+    }
 }

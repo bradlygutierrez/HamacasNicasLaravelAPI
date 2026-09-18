@@ -33,4 +33,14 @@ class ServicioAdicional extends Model
     {
         return $this->hasMany(ServicioPrecio::class);
     }
+
+    public function materiales()
+    {
+        return $this->hasMany(ServicioMaterial::class);
+    }
+
+    public function manoObra()
+    {
+        return $this->hasMany(ServicioManoObra::class);
+    }
 }

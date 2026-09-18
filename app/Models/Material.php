@@ -34,4 +34,14 @@ class Material extends Model
     {
         return $this->hasMany(MaterialPrecio::class);
     }
+
+    public function recetas()
+    {
+        return $this->hasMany(RecetaMaterial::class);
+    }
+
+    public function servicios()
+    {
+        return $this->hasMany(ServicioMaterial::class);
+    }
 }

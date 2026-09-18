@@ -22,6 +22,8 @@ use App\Http\Controllers\API\V1\HamacaVarianteController;
 use App\Http\Controllers\API\V1\MaterialController;
 use App\Http\Controllers\API\V1\ProcesoProduccionController;
 use App\Http\Controllers\API\V1\ServicioAdicionalController;
+use App\Http\Controllers\API\V1\RecetaHamacaController;
+use App\Http\Controllers\API\V1\ServicioFormulaController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
@@ -30,6 +32,8 @@ $inventoryManager = ['api.key', 'auth:sanctum', 'role:almacenista,admin'];
 $sales = ['api.key', 'auth:sanctum', 'role:vendedor,admin'];
 $productionCatalogView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,socio'];
 $serviceCatalogView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,almacenista'];
+$recipeView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,socio'];
+$formulaCostView = ['api.key', 'auth:sanctum', 'role:admin,socio'];
 
 // Autenticacion administrativa.
 Route::get('/v1/login', [AuthController::class, 'loginInfo']);
@@ -78,6 +82,9 @@ Route::get('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalCo
 Route::post('/v1/servicios-adicionales', [ServicioAdicionalController::class, 'store'])->middleware($admin);
 Route::put('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalController::class, 'update'])->middleware($admin);
 Route::delete('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdicionalController::class, 'destroy'])->middleware($admin);
+Route::get('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFormulaController::class, 'show'])->middleware($formulaCostView);
+Route::put('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFormulaController::class, 'update'])->middleware($admin);
+Route::get('/v1/servicios-adicionales/{servicioAdicional}/costos', [ServicioFormulaController::class, 'costs'])->middleware($formulaCostView);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);
@@ -87,6 +94,14 @@ Route::get('/v1/hamacas/{hamaca}', [HamacaController::class, 'show']);
 Route::post('/v1/hamacas', [HamacaController::class, 'store'])->middleware($admin);
 Route::put('/v1/hamacas/{hamaca}', [HamacaController::class, 'update'])->middleware($admin);
 Route::delete('/v1/hamacas/{hamaca}', [HamacaController::class, 'destroy'])->middleware($admin);
+Route::get('/v1/hamacas/{hamaca}/recetas', [RecetaHamacaController::class, 'index'])->middleware($recipeView);
+Route::get('/v1/hamacas/{hamaca}/recetas/activa', [RecetaHamacaController::class, 'active'])->middleware($recipeView);
+Route::post('/v1/hamacas/{hamaca}/recetas', [RecetaHamacaController::class, 'store'])->middleware($admin);
+Route::get('/v1/recetas-hamaca/{recetaHamaca}', [RecetaHamacaController::class, 'show'])->middleware($recipeView);
+Route::put('/v1/recetas-hamaca/{recetaHamaca}', [RecetaHamacaController::class, 'update'])->middleware($admin);
+Route::get('/v1/recetas-hamaca/{recetaHamaca}/costos', [RecetaHamacaController::class, 'costs'])->middleware($recipeView);
+Route::post('/v1/recetas-hamaca/{recetaHamaca}/activar', [RecetaHamacaController::class, 'activate'])->middleware($admin);
+Route::post('/v1/recetas-hamaca/{recetaHamaca}/descartar', [RecetaHamacaController::class, 'discard'])->middleware($admin);
 // Fotos.
 Route::get('/v1/fotos', [FotoController::class, 'index']);
 Route::get('/v1/fotos/{foto}', [FotoController::class, 'show']);
