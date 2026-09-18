@@ -83,10 +83,12 @@ Route::delete('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController
 Route::post('/v1/inventario/entradas', [InventarioHamacaController::class, 'entrada'])->middleware($inventoryManager);
 Route::post('/v1/inventario/salidas', [InventarioHamacaController::class, 'salida'])->middleware($inventoryManager);
 Route::post('/v1/inventario/transferencias', [InventarioHamacaController::class, 'transfer'])->middleware($inventoryManager);
+
+//Inventario-hamacas. 
 Route::get('/v1/inventario-hamacas', [InventarioHamacaController::class, 'index'])->middleware($auth);
 Route::get('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'show'])->middleware($auth);
-Route::post('/v1/inventario-hamacas', [InventarioHamacaController::class, 'store'])->middleware($inventoryManager);
-Route::put('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'update'])->middleware($inventoryManager);
+//Route::post('/v1/inventario-hamacas', [InventarioHamacaController::class, 'store'])->middleware($inventoryManager);
+//Route::put('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'update'])->middleware($inventoryManager);
 Route::delete('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'destroy'])->middleware($admin);
 
 // Usuarios administrativos.

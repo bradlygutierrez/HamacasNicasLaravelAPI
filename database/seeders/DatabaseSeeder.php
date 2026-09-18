@@ -10,6 +10,11 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (!app()->environment(['local', 'testing'])) {
+            $this->command?->warn('Seeding is only allowed in local or testing environments.');
+            return;
+        }
+
         $now = now();
 
         $usuarios = [
@@ -108,6 +113,8 @@ class DatabaseSeeder extends Seeder
         $tamanoId = DB::table('tamanos')->where('nombre', 'Grande')->value('id');
         $ubicacionId = DB::table('ubicaciones')->where('nombre', 'Mercado')->value('id');
         $colorIds = DB::table('colores')->whereIn('nombre', ['Blanco', 'Azul', 'Rojo', 'Verde'])->pluck('id')->all();
+        $colorIds = array_map('intval', $colorIds);
+        sort($colorIds);
 
         $hamacaId = DB::table('hamacas')->insertGetId([
             'nombre' => 'Familiar Base',
@@ -119,17 +126,38 @@ class DatabaseSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $composicionClave = hash('sha256', implode(',', $colorIds));
+
+        $varianteId = DB::table('hamaca_variantes')->insertGetId([
+            'hamaca_id' => $hamacaId,
+            'nombre' => 'Variante demo',
+            'composicion_clave' => $composicionClave,
+            'state' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('hamaca_variante_color')->insert(
+            collect($colorIds)->map(fn(int $colorId) => [
+                'hamaca_variante_id' => $varianteId,
+                'color_id' => $colorId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all()
+        );
+
         $inventarioId = DB::table('inventario_hamacas')->insertGetId([
             'hamaca_id' => $hamacaId,
+            'hamaca_variante_id' => $varianteId,
             'usuario_id' => $usuarios['socio'],
             'ubicacion_id' => $ubicacionId,
-            'composicion_clave' => hash('sha256', implode(',', $colorIds)),
+            'composicion_clave' => $composicionClave,
             'cantidad' => 5,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
 
-        DB::table('inventario_hamaca_color')->insert(collect($colorIds)->map(fn (int $colorId) => [
+        DB::table('inventario_hamaca_color')->insert(collect($colorIds)->map(fn(int $colorId) => [
             'inventario_hamaca_id' => $inventarioId,
             'color_id' => $colorId,
             'created_at' => $now,
@@ -144,30 +172,6 @@ class DatabaseSeeder extends Seeder
             'correo' => 'cliente@example.com',
             'password' => null,
             'state' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        DB::table('facturas')->insert([
-            'numero' => 'FAC-000001',
-            'cliente_id' => null,
-            'vendedor_id' => $usuarios['vendedor'],
-            'canal' => 'pos',
-            'nombre_cliente' => 'Consumidor final',
-            'ruc' => null,
-            'direccion' => null,
-            'telefono' => null,
-            'correo' => null,
-            'metodo_pago' => 'efectivo',
-            'subtotal' => 1500,
-            'descuento' => 0,
-            'tasa_iva' => 0.15,
-            'monto_iva' => 225,
-            'aplica_ir' => false,
-            'tasa_ir' => 0.02,
-            'monto_ir' => 0,
-            'total' => 1725,
-            'fecha' => $now,
             'created_at' => $now,
             'updated_at' => $now,
         ]);

@@ -10,15 +10,15 @@ use Illuminate\Support\Facades\DB;
 
 class InventarioService
 {
-    public function compositionKey(array $colorIds): string
+    /*public function compositionKey(array $colorIds): string
     {
         $ids = array_values(array_unique(array_map('intval', $colorIds)));
         sort($ids);
 
         return hash('sha256', implode(',', $ids));
-    }
+    }*/
 
-    public function upsert(array $data): InventarioHamaca
+    /*public function upsert(array $data): InventarioHamaca
     {
         return DB::transaction(function () use ($data) {
             $variante = null;
@@ -36,17 +36,17 @@ class InventarioService
                 $colorIds = array_values(array_unique(array_map('intval', $data['color_ids'])));
                 sort($colorIds);
 
-                $composicionClave = $this->compositionKey($colorIds);
+                //$composicionClave = $this->compositionKey($colorIds);
 
                 $variante = HamacaVariante::where('hamaca_id', $hamacaId)
-                    ->where('composicion_clave', $composicionClave)
+                    //->where('composicion_clave', $composicionClave)
                     ->lockForUpdate()
                     ->first();
 
                 if (!$variante) {
                     $variante = new HamacaVariante();
                     $variante->hamaca_id = $hamacaId;
-                    $variante->composicion_clave = $composicionClave;
+                    //$variante->composicion_clave = $composicionClave;
                     $variante->state = true;
                     $variante->save();
                     $variante->colores()->sync($colorIds);
@@ -85,7 +85,7 @@ class InventarioService
                 'colores',
             ]);
         });
-    }
+    }*/
 
     public function entrada(array $data, int $operadorId): InventarioHamaca
     {

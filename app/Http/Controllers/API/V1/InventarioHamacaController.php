@@ -35,7 +35,7 @@ class InventarioHamacaController extends Controller
         );
     }
 
-    public function store(StoreInventarioHamacaRequest $request)
+    /*public function store(StoreInventarioHamacaRequest $request)
     {
         $inventario = $this->service->upsert($request->validated());
 
@@ -43,7 +43,7 @@ class InventarioHamacaController extends Controller
             'message' => 'Inventario creado correctamente',
             'data' => new InventarioHamacaResource($inventario),
         ], 201);
-    }
+    }*/
 
     public function show(InventarioHamaca $inventarioHamaca)
     {
@@ -61,7 +61,7 @@ class InventarioHamacaController extends Controller
         );
     }
 
-    public function update(StoreInventarioHamacaRequest $request, InventarioHamaca $inventarioHamaca)
+    /*public function update(StoreInventarioHamacaRequest $request, InventarioHamaca $inventarioHamaca)
     {
         $validated = $request->validated();
 
@@ -114,7 +114,7 @@ class InventarioHamacaController extends Controller
                 ])
             ),
         ]);
-    }
+    }*/
 
     public function destroy(InventarioHamaca $inventarioHamaca)
     {
