@@ -70,6 +70,89 @@ class ProductionCatalogApiTest extends TestCase
             ->assertJsonValidationErrors('contenido_por_compra');
     }
 
+    public function test_material_normalizes_null_waste_percentage_to_zero(): void
+    {
+        Sanctum::actingAs($this->seedUser('admin'));
+
+        $response = $this->postJson('/api/v1/materiales', [
+            'nombre' => 'Bolillo',
+            'unidad_consumo' => 'unidad',
+            'unidad_compra' => 'unidad',
+            'precio_actual' => 10,
+        ])->assertOk();
+
+        $materialId = $response->json('data.id');
+
+        $this->putJson("/api/v1/materiales/{$materialId}", [
+            'porcentaje_merma' => null,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('materiales', [
+            'id' => $materialId,
+            'porcentaje_merma' => 0,
+        ]);
+    }
+
+    public function test_material_normalizes_equal_units_to_one_purchase_content(): void
+    {
+        Sanctum::actingAs($this->seedUser('admin'));
+
+        $response = $this->postJson('/api/v1/materiales', [
+            'nombre' => 'Bolillo',
+            'unidad_consumo' => 'unidad',
+            'unidad_compra' => 'unidad',
+            'precio_actual' => 10,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('materiales', [
+            'id' => $response->json('data.id'),
+            'contenido_por_compra' => 1,
+        ]);
+    }
+
+    public function test_material_update_rejects_missing_content_when_units_differ(): void
+    {
+        Sanctum::actingAs($this->seedUser('admin'));
+
+        $response = $this->postJson('/api/v1/materiales', [
+            'nombre' => 'Bolillo',
+            'unidad_consumo' => 'unidad',
+            'unidad_compra' => 'unidad',
+            'precio_actual' => 10,
+        ])->assertOk();
+
+        $this->putJson('/api/v1/materiales/' . $response->json('data.id'), [
+            'unidad_consumo' => 'metro',
+            'unidad_compra' => 'rollo',
+            'contenido_por_compra' => null,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('contenido_por_compra');
+    }
+
+    public function test_material_update_normalizes_equal_units_to_one(): void
+    {
+        Sanctum::actingAs($this->seedUser('admin'));
+
+        $response = $this->postJson('/api/v1/materiales', [
+            'nombre' => 'Manila',
+            'unidad_consumo' => 'metro',
+            'unidad_compra' => 'rollo',
+            'contenido_por_compra' => 100,
+            'precio_actual' => 600,
+        ])->assertOk();
+
+        $this->putJson('/api/v1/materiales/' . $response->json('data.id'), [
+            'unidad_consumo' => 'unidad',
+            'unidad_compra' => 'unidad',
+            'contenido_por_compra' => null,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('materiales', [
+            'id' => $response->json('data.id'),
+            'contenido_por_compra' => 1,
+        ]);
+    }
+
     public function test_admin_can_manage_service_price_history_and_process_catalog(): void
     {
         Sanctum::actingAs($this->seedUser('admin'));

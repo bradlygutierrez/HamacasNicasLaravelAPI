@@ -56,7 +56,7 @@ return new class extends Migration
             $table->foreign('material_id')
                 ->references('id')
                 ->on('materiales')
-                ->cascadeOnDelete();
+                ->restrictOnDelete();
 
             $table->foreign('usuario_id')
                 ->references('id')
@@ -76,7 +76,7 @@ return new class extends Migration
             $table->foreign('servicio_adicional_id')
                 ->references('id')
                 ->on('servicios_adicionales')
-                ->cascadeOnDelete();
+                ->restrictOnDelete();
 
             $table->foreign('usuario_id')
                 ->references('id')

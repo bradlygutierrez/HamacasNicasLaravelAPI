@@ -9,6 +9,27 @@ use Illuminate\Validation\Validator;
 
 class UpdateMaterialRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $material = $this->route('material');
+        $consumo = $this->input('unidad_consumo', $material instanceof Material ? $material->unidad_consumo : null);
+        $compra = $this->input('unidad_compra', $material instanceof Material ? $material->unidad_compra : null);
+
+        $normalized = [];
+
+        if ($this->exists('porcentaje_merma')) {
+            $normalized['porcentaje_merma'] = $this->input('porcentaje_merma') ?? 0;
+        }
+
+        if ($consumo === $compra) {
+            $normalized['contenido_por_compra'] = 1;
+        }
+
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;

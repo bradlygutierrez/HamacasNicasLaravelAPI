@@ -7,6 +7,16 @@ use Illuminate\Validation\Validator;
 
 class StoreMaterialRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'porcentaje_merma' => $this->input('porcentaje_merma') ?? 0,
+            'contenido_por_compra' => $this->input('unidad_consumo') === $this->input('unidad_compra')
+                ? 1
+                : $this->input('contenido_por_compra'),
+        ]);
+    }
+
     public function authorize(): bool
     {
         return true;
