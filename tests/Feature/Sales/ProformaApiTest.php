@@ -116,4 +116,21 @@ class ProformaApiTest extends TestCase
         $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['servicios'] = [['servicio_adicional_id' => $productService->id, 'cantidad' => 1]]; $payload['servicios_pedido'] = [['servicio_adicional_id' => $orderService->id, 'cantidad' => 1]]; $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk();
         $detailId = DB::table('proforma_detalles')->where('proforma_id', $id)->value('id'); $productServiceId = DB::table('proforma_detalle_servicios')->where('proforma_detalle_id', $detailId)->value('id'); $orderServiceId = DB::table('proforma_servicios')->where('proforma_id', $id)->value('id'); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'receta', 'origen_id' => $detailId]); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'servicio_producto', 'origen_id' => $productServiceId]); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'servicio_pedido', 'origen_id' => $orderServiceId]);
     }
+
+    public function test_vendor_preserves_admin_rates_and_service_override_when_updating_and_emitting(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Envío autorizado', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 500, 'costo_actual' => 400, 'state' => true]); Sanctum::actingAs($admin);
+        $payload = array_merge($this->payload($hamaca, $vendor->id), ['aplica_iva' => true, 'tasa_iva' => 12, 'aplica_ir' => true, 'tasa_ir' => 3, 'tasa_comision_vendedor' => 7, 'servicios_pedido' => [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500, 'costo_base_unitario_override' => 350]]]);
+        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); Sanctum::actingAs($vendor);
+        $vendorPayload = array_merge($this->payload($hamaca, $admin->id), ['aplica_iva' => true, 'tasa_iva' => 99, 'aplica_ir' => true, 'tasa_ir' => 99, 'tasa_comision_vendedor' => 99, 'observaciones' => 'Cambio', 'servicios_pedido' => [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500]]]);
+        $this->putJson("/api/v1/proformas/{$id}", $vendorPayload)->assertOk(); $this->assertDatabaseHas('proformas', ['id' => $id, 'tasa_iva' => '12.00', 'tasa_ir' => '3.00', 'tasa_comision_vendedor' => '7.00']); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => '350.00']);
+        $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk()->assertJsonPath('data.tasa_iva', '12.00')->assertJsonPath('data.tasa_ir', '3.00')->assertJsonPath('data.tasa_comision_vendedor', '7.00'); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_snapshot' => '350.00']);
+    }
+
+    public function test_vendor_cannot_set_administrative_rates_or_override_when_creating(): void
+    {
+        $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Envío default', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 500, 'costo_actual' => 400, 'state' => true]); Sanctum::actingAs($vendor);
+        $payload = array_merge($this->payload($hamaca, null), ['aplica_iva' => true, 'tasa_iva' => 99, 'aplica_ir' => true, 'tasa_ir' => 99, 'tasa_comision_vendedor' => 99, 'servicios_pedido' => [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500, 'costo_base_unitario_override' => 1]]]);
+        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->assertDatabaseHas('proformas', ['id' => $id, 'tasa_iva' => config('proformas.iva_rate'), 'tasa_ir' => config('proformas.ir_rate'), 'tasa_comision_vendedor' => config('proformas.commission_rate')]); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => null]);
+    }
 }

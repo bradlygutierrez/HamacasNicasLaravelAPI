@@ -30,7 +30,8 @@ class ProformaService
             $proforma = Proforma::query()->lockForUpdate()->findOrFail($proforma->id);
             $this->assertOwner($proforma, $user);
             if ($proforma->estado !== 'borrador') throw new BusinessRuleException('Una proforma emitida no se puede editar.');
-            $values = $this->pricing->calculatePayload($data, $user);
+            $authorizedSettings = $user->rol === 'vendedor' ? $this->persistedAuthorizedSettings($proforma) : null;
+            $values = $this->pricing->calculatePayload($data, $user, $authorizedSettings);
             $proforma->update($this->baseAttributes($data, $user) + $values['values']);
             $this->replaceAggregate($proforma, $values);
             return $proforma->fresh($this->relations());
@@ -83,6 +84,7 @@ class ProformaService
     private function sourceId(array $snapshot, array $detailIds, array $serviceIds): int { if ($snapshot['origen_tipo'] === 'receta') return $detailIds[(int) $snapshot['origen_id']] ?? 0; if ($snapshot['origen_tipo'] === 'servicio_pedido') return $serviceIds['pedido:' . $snapshot['origen_id']] ?? 0; return $serviceIds[(string) $snapshot['origen_id']] ?? 0; }
 
     private function serviceAttributes(array $service): array { $model = $service['service']; $input = $service['input']; return ['servicio_adicional_id' => $model->id, 'servicio_nombre_snapshot' => $model->nombre, 'alcance_snapshot' => $model->alcance, 'metodo_calculo_snapshot' => $model->metodo_calculo, 'unidad_snapshot' => $model->unidad, 'detalle' => $input['detalle'] ?? null, 'cantidad' => $service['cantidad'], 'precio_unitario' => $service['precio_unitario'], 'descuento' => $service['descuento'], 'subtotal' => $service['subtotal'], 'costo_base_unitario_override' => $service['costo_base_override'] ?? null, 'costo_base_unitario_snapshot' => $service['costo_base'], 'costo_unitario_estimado' => $service['costo_unitario'], 'costo_total_estimado' => $service['costo_total']]; }
+    private function persistedAuthorizedSettings(Proforma $proforma): array { $proforma->loadMissing('servicios'); return ['tasa_iva' => $proforma->tasa_iva, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'service_overrides' => $proforma->servicios->mapWithKeys(fn ($service) => [(string) $service->servicio_adicional_id => $service->costo_base_unitario_override])->all()]; }
     private function assertOwner(Proforma $proforma, Usuario $user): void { if ($user->rol === 'vendedor' && $proforma->vendedor_id !== $user->id) abort(403, 'No tenés acceso a esta proforma.'); }
     private function relations(): array { return ['cliente', 'vendedor', 'detalles.servicios', 'servicios', 'materialesSnapshot', 'manoObraSnapshot']; }
 }
