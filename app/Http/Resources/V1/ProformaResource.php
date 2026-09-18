@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Support\DecimalMoney;
 
 class ProformaResource extends JsonResource
 {
@@ -18,11 +19,14 @@ class ProformaResource extends JsonResource
         if (!$this->relationLoaded('materialesSnapshot')) return [];
         $groups = [];
         foreach ($this->materialesSnapshot as $snapshot) {
-            $key = (string) $snapshot->material_id;
-            if (!isset($groups[$key])) $groups[$key] = ['material_id' => $snapshot->material_id, 'nombre' => $snapshot->material_nombre_snapshot, 'unidad_consumo' => $snapshot->unidad_consumo_snapshot, 'cantidad_requerida' => 0.0, 'unidad_compra' => $snapshot->unidad_compra_snapshot, 'contenido_por_compra' => (float) $snapshot->contenido_por_compra_snapshot, 'cantidad_compra' => 0, 'precio_compra' => (float) $snapshot->precio_compra_snapshot, 'costo_consumo' => 0.0, 'costo_compra' => 0.0];
-            $groups[$key]['cantidad_requerida'] += (float) $snapshot->cantidad_total_con_merma; $groups[$key]['costo_consumo'] += (float) $snapshot->costo_consumo_total;
+            $key = $snapshot->material_id !== null
+                ? 'material:' . $snapshot->material_id
+                : implode('|', [$snapshot->material_nombre_snapshot, $snapshot->unidad_consumo_snapshot, $snapshot->unidad_compra_snapshot, $snapshot->contenido_por_compra_snapshot, $snapshot->precio_compra_snapshot]);
+            if (!isset($groups[$key])) $groups[$key] = ['material_id' => $snapshot->material_id, 'nombre' => $snapshot->material_nombre_snapshot, 'unidad_consumo' => $snapshot->unidad_consumo_snapshot, 'cantidad_requerida' => '0.0000', 'unidad_compra' => $snapshot->unidad_compra_snapshot, 'contenido_por_compra' => (string) $snapshot->contenido_por_compra_snapshot, 'cantidad_compra' => 0, 'precio_compra' => (string) $snapshot->precio_compra_snapshot, 'costo_consumo' => '0.00', 'costo_compra' => '0.00'];
+            $groups[$key]['cantidad_requerida'] = DecimalMoney::add($groups[$key]['cantidad_requerida'], (string) $snapshot->cantidad_total_con_merma, 4);
+            $groups[$key]['costo_consumo'] = DecimalMoney::add($groups[$key]['costo_consumo'], (string) $snapshot->costo_consumo_total);
         }
-        foreach ($groups as &$group) { $group['cantidad_compra'] = (int) ceil($group['cantidad_requerida'] / $group['contenido_por_compra']); $group['costo_consumo'] = number_format($group['costo_consumo'], 2, '.', ''); $group['costo_compra'] = number_format($group['cantidad_compra'] * $group['precio_compra'], 2, '.', ''); $group['cantidad_requerida'] = number_format($group['cantidad_requerida'], 4, '.', ''); }
+        foreach ($groups as &$group) { $group['cantidad_compra'] = DecimalMoney::ceilUnits($group['cantidad_requerida'], $group['contenido_por_compra']); $group['costo_compra'] = DecimalMoney::mul((string) $group['cantidad_compra'], $group['precio_compra']); }
         return array_values($groups);
     }
 }

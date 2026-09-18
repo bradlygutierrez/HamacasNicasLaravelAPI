@@ -85,4 +85,11 @@ class ProformaApiTest extends TestCase
     private function payload(Hamaca $hamaca, ?int $sellerId): array { return ['cliente_id' => null, 'nombre_cliente' => 'Cliente Proforma', 'vendedor_id' => $sellerId, 'detalles' => [['hamaca_id' => $hamaca->id, 'cantidad' => 1, 'precio_unitario' => 1000, 'descuento' => 0]], 'servicios_pedido' => []]; }
     private function user(string $role): Usuario { DB::table('usuarios')->updateOrInsert(['correo' => "proforma-{$role}@example.com"], ['nombre' => ucfirst($role), 'password' => Hash::make('secret123'), 'rol' => $role === 'vendedor2' ? 'vendedor' : $role, 'state' => true, 'created_at' => now(), 'updated_at' => now()]); return Usuario::where('correo', "proforma-{$role}@example.com")->firstOrFail(); }
     private function hamacaWithRecipe(): Hamaca { $hamaca = Hamaca::create(['nombre' => 'Proforma ' . uniqid(), 'categoria_id' => DB::table('categorias')->value('id'), 'tamano_id' => DB::table('tamanos')->value('id'), 'precio' => 1000]); $material = Material::create(['nombre' => 'Material Proforma ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 600, 'porcentaje_merma' => 0, 'state' => true]); $recipe = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 1, 'estado' => 'activa', 'usuario_id' => $this->user('admin')->id]); RecetaMaterial::create(['receta_hamaca_id' => $recipe->id, 'material_id' => $material->id, 'cantidad' => 10]); return $hamaca; }
+    public function test_existing_client_can_keep_custom_proforma_snapshot(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $client = \App\Models\Cliente::create(['nombre' => 'Empresa ABC', 'direccion' => 'Managua', 'state' => true]); Sanctum::actingAs($admin);
+        $payload = array_merge($this->payload($hamaca, $admin->id), ['cliente_id' => $client->id, 'nombre_cliente' => 'Empresa ABC - Sucursal León', 'direccion' => 'León']);
+        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id');
+        $this->assertDatabaseHas('proformas', ['id' => $id, 'cliente_id' => $client->id, 'nombre_cliente' => 'Empresa ABC - Sucursal León', 'direccion' => 'León']);
+    }
 }
