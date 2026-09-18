@@ -62,7 +62,13 @@ class ProformaPricingService
     }
 
     private function assertDiscount(float $discount, float $gross, string $message): void { if ($discount < 0 || $discount > $gross) throw new BusinessRuleException($message, [], 422); }
-    private function money(float $value): float { $rounded = round($value, 2, PHP_ROUND_HALF_UP); return function_exists('bcadd') ? (float) bcadd((string) $rounded, '0', 2) : $rounded; }
+    private function money(float $value): float { return (float) $this->moneyAdd((string) $value, '0'); }
+    private function moneyAdd(string $a, string $b): string { return $this->bcRound(bcadd($a, $b, 6), 2); }
+    private function moneySub(string $a, string $b): string { return $this->bcRound(bcsub($a, $b, 6), 2); }
+    private function moneyMul(string $a, string $b): string { return $this->bcRound(bcmul($a, $b, 6), 2); }
+    private function moneyDiv(string $a, string $b): string { return $this->bcRound(bcdiv($a, $b, 8), 2); }
+    private function moneyPercent(string $amount, string $rate): string { return $this->moneyDiv($this->moneyMul($amount, $rate), '100'); }
+    private function bcRound(string $value, int $scale): string { $negative = str_starts_with($value, '-'); $absolute = ltrim($value, '-'); $rounded = bcadd($absolute, '0.005', $scale); return ($negative ? '-' : '') . $rounded; }
     private function materialSnapshot($material, float $base, float $factor, $override, string $origin, $originId): array { $waste = $override === null ? (float) $material->porcentaje_merma : (float) $override; $content = (float) $material->contenido_por_compra; $unit = (float) $material->precio_actual / $content; $totalQty = $base * (1 + $waste / 100) * $factor; return ['origen_tipo' => $origin, 'origen_id' => $originId, 'material_id' => $material->id, 'material_nombre_snapshot' => $material->nombre, 'unidad_consumo_snapshot' => $material->unidad_consumo, 'unidad_compra_snapshot' => $material->unidad_compra, 'cantidad_base_unitaria' => $base, 'factor_cantidad' => $factor, 'porcentaje_merma' => $waste, 'cantidad_total_con_merma' => $totalQty, 'contenido_por_compra_snapshot' => $content, 'precio_compra_snapshot' => $material->precio_actual, 'costo_unidad_consumo_snapshot' => $unit, 'costo_consumo_total' => $this->money($totalQty * $unit)]; }
     private function laborSnapshot($process, float $cost, float $factor, string $origin, $originId, $order): array { return ['origen_tipo' => $origin, 'origen_id' => $originId, 'proceso_produccion_id' => $process?->id, 'proceso_nombre_snapshot' => $process?->nombre ?? 'Proceso', 'costo_unitario_snapshot' => $cost, 'factor_cantidad' => $factor, 'costo_total' => $this->money($cost * $factor), 'orden' => $order]; }
 }

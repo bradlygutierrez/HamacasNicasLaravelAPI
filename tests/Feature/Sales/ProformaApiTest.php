@@ -56,6 +56,13 @@ class ProformaApiTest extends TestCase
         $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['hamaca_variante_id'] = $variant->id; $this->postJson('/api/v1/proformas', $payload)->assertStatus(422);
     }
 
+    public function test_inactive_client_is_rejected_and_vendor_override_is_not_persisted(): void
+    {
+        $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); $client = \App\Models\Cliente::create(['nombre' => 'Inactivo', 'state' => false]); Sanctum::actingAs($vendor);
+        $this->postJson('/api/v1/proformas', array_merge($this->payload($hamaca, null), ['cliente_id' => $client->id, 'nombre_cliente' => null]))->assertStatus(422);
+        $service = ServicioAdicional::create(['nombre' => 'Envío override', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 500, 'costo_actual' => 350, 'state' => true]); $payload = $this->payload($hamaca, null); $payload['servicios_pedido'] = [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500, 'costo_base_unitario_override' => 1]]; $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => null]);
+    }
+
     public function test_emit_freezes_snapshots_and_retry_does_not_change_number(): void
     {
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin);

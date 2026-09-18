@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ProformaRequest extends FormRequest
 {
@@ -11,7 +12,7 @@ class ProformaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', Rule::exists('clientes', 'id')->where(fn ($query) => $query->where('state', true))],
             'nombre_cliente' => 'required_without:cliente_id|string|max:150',
             'ruc' => 'nullable|string|max:50', 'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:50', 'correo' => 'nullable|email|max:150',
