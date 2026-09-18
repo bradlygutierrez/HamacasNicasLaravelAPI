@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Resources\V1;
+use Illuminate\Http\Resources\Json\JsonResource;
+class ProformaDetalleResource extends JsonResource { public function toArray($request): array { return ['id' => $this->id, 'hamaca_id' => $this->hamaca_id, 'hamaca_variante_id' => $this->hamaca_variante_id, 'receta_version_snapshot' => $this->receta_version_snapshot, 'nombre' => $this->hamaca_nombre_snapshot, 'descripcion' => $this->hamaca_descripcion_snapshot, 'cantidad' => $this->cantidad, 'precio_unitario' => $this->precio_unitario, 'descuento' => $this->descuento, 'subtotal' => $this->subtotal, 'servicios' => ProformaDetalleServicioResource::collection($this->whenLoaded('servicios')), 'costo_unitario_estimado' => in_array($request->user()?->rol, ['admin', 'socio'], true) ? $this->costo_unitario_estimado : null]; } }

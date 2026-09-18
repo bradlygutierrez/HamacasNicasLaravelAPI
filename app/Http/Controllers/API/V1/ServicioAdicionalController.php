@@ -20,6 +20,7 @@ class ServicioAdicionalController extends Controller
     public function index(Request $request): ServicioAdicionalCollection
     {
         $servicios = ServicioAdicional::query()
+            ->when($request->filled('alcance'), fn ($query) => $query->where('alcance', $request->string('alcance')))
             ->when(
                 !$request->boolean('incluir_inactivos'),
                 fn ($query) => $query->where('state', true)
@@ -33,7 +34,7 @@ class ServicioAdicionalController extends Controller
                 })
             )
             ->orderBy('nombre')
-            ->paginate(50);
+            ->paginate(min(max($request->integer('per_page', 50), 1), 100));
 
         return new ServicioAdicionalCollection($servicios);
     }
