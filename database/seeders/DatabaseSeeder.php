@@ -183,6 +183,9 @@ class DatabaseSeeder extends Seeder
             ['nombre' => 'Facturas', 'slug' => 'facturas', 'ruta' => '/facturas', 'icono' => 'receipt', 'orden' => 40],
             ['nombre' => 'Usuarios', 'slug' => 'usuarios', 'ruta' => '/usuarios', 'icono' => 'users', 'orden' => 50],
             ['nombre' => 'Permisos', 'slug' => 'permisos', 'ruta' => '/permisos', 'icono' => 'shield-check', 'orden' => 60],
+            ['nombre' => 'Materiales', 'slug' => 'materiales', 'ruta' => '/materiales', 'icono' => 'boxes', 'orden' => 70],
+            ['nombre' => 'Procesos de producción', 'slug' => 'procesos-produccion', 'ruta' => '/procesos-produccion', 'icono' => 'settings', 'orden' => 80],
+            ['nombre' => 'Servicios adicionales', 'slug' => 'servicios-adicionales', 'ruta' => '/servicios-adicionales', 'icono' => 'package', 'orden' => 90],
         ];
 
         foreach ($pantallas as $pantalla) {
@@ -227,20 +230,29 @@ class DatabaseSeeder extends Seeder
                 'facturas' => ['ver'],
                 'usuarios' => ['ver', 'crear', 'editar', 'eliminar'],
                 'permisos' => ['ver', 'crear', 'editar', 'eliminar'],
+                'materiales' => ['ver', 'crear', 'editar', 'eliminar'],
+                'procesos-produccion' => ['ver', 'crear', 'editar', 'eliminar'],
+                'servicios-adicionales' => ['ver', 'crear', 'editar', 'eliminar'],
             ],
             'vendedor' => [
                 'dashboard' => ['ver'],
                 'inventario' => ['ver'],
                 'ventas-pos' => ['ver', 'crear'],
                 'facturas' => ['ver'],
+                'servicios-adicionales' => ['ver'],
             ],
             'almacenista' => [
                 'dashboard' => ['ver'],
                 'inventario' => ['ver', 'crear', 'editar'],
+                'materiales' => ['ver'],
+                'procesos-produccion' => ['ver'],
+                'servicios-adicionales' => ['ver'],
             ],
             'socio' => [
                 'dashboard' => ['ver'],
                 'inventario' => ['ver'],
+                'materiales' => ['ver'],
+                'procesos-produccion' => ['ver'],
             ],
         ];
 
