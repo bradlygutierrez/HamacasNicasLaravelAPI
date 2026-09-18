@@ -66,6 +66,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ['name' => 'Movimientos'],
                 ['name' => 'Facturas'],
                 ['name' => 'POS'],
+                ['name' => 'Producción'],
                 ['name' => 'Documentacion'],
             ],
             'components' => [
@@ -535,6 +536,33 @@ HTML, 200, ['Content-Type' => 'text/html']);
                             '422' => ['description' => 'Validacion fallida'],
                         ],
                     ],
+                ],
+                '/v1/hamacas/{hamaca}/recetas' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Versiones de receta de una hamaca', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['200' => ['description' => 'Recetas']]],
+                    'post' => ['tags' => ['Producción'], 'summary' => 'Crear borrador de receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['201' => ['description' => 'Borrador creado'], '409' => ['description' => 'Regla de negocio']]],
+                ],
+                '/v1/hamacas/{hamaca}/recetas/activa' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Receta activa de una hamaca', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['200' => ['description' => 'Receta activa']]],
+                ],
+                '/v1/recetas-hamaca/{recetaHamaca}' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Ver receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Receta']]],
+                    'put' => ['tags' => ['Producción'], 'summary' => 'Guardar borrador de receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Receta actualizada'], '409' => ['description' => 'Receta no editable']]],
+                ],
+                '/v1/recetas-hamaca/{recetaHamaca}/costos' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Costo estimado actual de receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Costos']]],
+                ],
+                '/v1/recetas-hamaca/{recetaHamaca}/activar' => [
+                    'post' => ['tags' => ['Producción'], 'summary' => 'Activar receta borrador', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Receta activada'], '409' => ['description' => 'Regla de negocio']]],
+                ],
+                '/v1/recetas-hamaca/{recetaHamaca}/descartar' => [
+                    'post' => ['tags' => ['Producción'], 'summary' => 'Descartar receta borrador', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Receta descartada'], '409' => ['description' => 'Regla de negocio']]],
+                ],
+                '/v1/servicios-adicionales/{servicioAdicional}/formula' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Ver fórmula productiva del servicio', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('servicioAdicional')], 'responses' => ['200' => ['description' => 'Fórmula']]],
+                    'put' => ['tags' => ['Producción'], 'summary' => 'Guardar fórmula productiva del servicio', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('servicioAdicional')], 'responses' => ['200' => ['description' => 'Fórmula actualizada']]],
+                ],
+                '/v1/servicios-adicionales/{servicioAdicional}/costos' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Costo productivo del servicio', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('servicioAdicional')], 'responses' => ['200' => ['description' => 'Costos']]],
                 ],
                 '/v1/documentation' => [
                     'get' => ['tags' => ['Documentacion'], 'summary' => 'Swagger UI', 'responses' => ['200' => ['description' => 'Interfaz Swagger']]],

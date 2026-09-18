@@ -68,4 +68,14 @@ class Hamaca extends Model
     {
         return $this->hasMany(HamacaVariante::class, 'hamaca_id');
     }
+
+    public function recetas()
+    {
+        return $this->hasMany(RecetaHamaca::class);
+    }
+
+    public function recetaActiva()
+    {
+        return $this->hasOne(RecetaHamaca::class)->where('estado', 'activa');
+    }
 }

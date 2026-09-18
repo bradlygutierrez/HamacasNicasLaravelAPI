@@ -19,6 +19,7 @@ class MaterialController extends Controller
 
     public function index(Request $request): MaterialCollection
     {
+        $perPage = min(max($request->integer('per_page', 50), 1), 100);
         $materials = Material::query()
             ->when(
                 !$request->boolean('incluir_inactivos'),
@@ -33,7 +34,7 @@ class MaterialController extends Controller
                 })
             )
             ->orderBy('nombre')
-            ->paginate(50);
+            ->paginate($perPage);
 
         return new MaterialCollection($materials);
     }

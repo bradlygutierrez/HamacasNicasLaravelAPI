@@ -14,6 +14,7 @@ class ProcesoProduccionController extends Controller
 {
     public function index(Request $request): ProcesoProduccionCollection
     {
+        $perPage = min(max($request->integer('per_page', 50), 1), 100);
         $procesos = ProcesoProduccion::query()
             ->when(
                 !$request->boolean('incluir_inactivos'),
@@ -28,7 +29,7 @@ class ProcesoProduccionController extends Controller
                 })
             )
             ->orderBy('nombre')
-            ->paginate(50);
+            ->paginate($perPage);
 
         return new ProcesoProduccionCollection($procesos);
     }

@@ -14,10 +14,17 @@ class HamacaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Retorna todas las hamacas
-        return new HamacaCollection(Hamaca::latest()->paginate());
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
+        $query = Hamaca::with(['categoria', 'tamano'])
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $term = '%' . $request->string('search') . '%';
+                $query->where('nombre', 'like', $term);
+            })
+            ->latest();
+
+        return new HamacaCollection($query->paginate($perPage));
     }
 
     public function getHamacasWithDetails()
