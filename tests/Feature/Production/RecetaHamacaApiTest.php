@@ -99,6 +99,30 @@ class RecetaHamacaApiTest extends TestCase
         $this->assertDatabaseHas('recetas_hamaca', ['id' => $second, 'estado' => 'activa']);
     }
 
+    public function test_update_without_observaciones_preserves_cloned_observaciones(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $material = $this->material();
+        Sanctum::actingAs($admin);
+
+        $first = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$first}", [
+            'observaciones' => 'Usar hilo reforzado.',
+            'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
+            'mano_obra' => [],
+        ])->assertOk();
+        $this->postJson("/api/v1/recetas-hamaca/{$first}/activar")->assertOk();
+
+        $second = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$second}", [
+            'materiales' => [['material_id' => $material->id, 'cantidad' => 2]],
+            'mano_obra' => [],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $second, 'observaciones' => 'Usar hilo reforzado.']);
+    }
+
     public function test_only_drafts_can_be_edited_and_discarded(): void
     {
         $admin = $this->user('admin');

@@ -62,7 +62,9 @@ class RecetaHamacaService
                 throw new BusinessRuleException('Solo se puede modificar una receta en borrador.');
             }
 
-            $recipe->update(['observaciones' => $data['observaciones'] ?? null]);
+            if (array_key_exists('observaciones', $data)) {
+                $recipe->update(['observaciones' => $data['observaciones']]);
+            }
             $recipe->detallesMateriales()->delete();
             $recipe->detallesManoObra()->delete();
             $recipe->detallesMateriales()->createMany($data['materiales']);
