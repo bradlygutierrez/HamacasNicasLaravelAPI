@@ -7,6 +7,7 @@ use App\Models\Material;
 use App\Models\RecetaHamaca;
 use App\Models\RecetaMaterial;
 use App\Models\ServicioAdicional;
+use App\Models\ServicioMaterial;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -91,5 +92,28 @@ class ProformaApiTest extends TestCase
         $payload = array_merge($this->payload($hamaca, $admin->id), ['cliente_id' => $client->id, 'nombre_cliente' => 'Empresa ABC - Sucursal León', 'direccion' => 'León']);
         $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id');
         $this->assertDatabaseHas('proformas', ['id' => $id, 'cliente_id' => $client->id, 'nombre_cliente' => 'Empresa ABC - Sucursal León', 'direccion' => 'León']);
+    }
+
+    public function test_admin_service_override_and_custom_commission_survive_emit(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Envío override final', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 500, 'costo_actual' => 400, 'state' => true]); Sanctum::actingAs($admin);
+        $payload = array_merge($this->payload($hamaca, $admin->id), ['tasa_comision_vendedor' => 7, 'servicios_pedido' => [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500, 'costo_base_unitario_override' => 350]]]);
+        $preview = $this->postJson('/api/v1/proformas/calcular', $payload)->assertOk()->json('data.values'); $this->assertEquals(7, $preview['tasa_comision_vendedor']); $this->assertSame('105.00', (string) $preview['monto_comision_vendedor']);
+        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->getJson("/api/v1/proformas/{$id}")->assertOk()->assertJsonPath('data.servicios_pedido.0.costo_base_unitario_override', '350.00');
+        $payload['observaciones'] = 'Actualizado'; $this->putJson("/api/v1/proformas/{$id}", $payload)->assertOk(); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => '350.00']);
+        $emitted = $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk()->json('data'); $this->assertEquals(7, $emitted['tasa_comision_vendedor']); $this->assertSame('350.00', (string) DB::table('proforma_servicios')->where('proforma_id', $id)->value('costo_base_unitario_snapshot'));
+    }
+
+    public function test_emit_uses_recipe_version_active_at_emit_time(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin); $payload = $this->payload($hamaca, $admin->id); $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $v1 = $hamaca->recetaActiva()->firstOrFail(); $v1->update(['estado' => 'archivada']); $v2 = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 2, 'estado' => 'activa', 'usuario_id' => $admin->id]); RecetaMaterial::create(['receta_hamaca_id' => $v2->id, 'material_id' => Material::firstOrFail()->id, 'cantidad' => 20]);
+        $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk(); $this->assertDatabaseHas('proforma_detalles', ['proforma_id' => $id, 'receta_hamaca_id' => $v2->id, 'receta_version_snapshot' => 2]);
+    }
+
+    public function test_snapshot_origins_reference_real_aggregate_rows(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $material = Material::firstOrFail(); $productService = ServicioAdicional::create(['nombre' => 'Grabado origin', 'alcance' => 'producto', 'metodo_calculo' => 'por_producto', 'precio_venta_actual' => 50, 'costo_actual' => 0, 'state' => true]); $orderService = ServicioAdicional::create(['nombre' => 'Envío origin', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 100, 'costo_actual' => 0, 'state' => true]); ServicioMaterial::create(['servicio_adicional_id' => $productService->id, 'material_id' => $material->id, 'cantidad' => 1]); ServicioMaterial::create(['servicio_adicional_id' => $orderService->id, 'material_id' => $material->id, 'cantidad' => 1]); Sanctum::actingAs($admin);
+        $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['servicios'] = [['servicio_adicional_id' => $productService->id, 'cantidad' => 1]]; $payload['servicios_pedido'] = [['servicio_adicional_id' => $orderService->id, 'cantidad' => 1]]; $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk();
+        $detailId = DB::table('proforma_detalles')->where('proforma_id', $id)->value('id'); $productServiceId = DB::table('proforma_detalle_servicios')->where('proforma_detalle_id', $detailId)->value('id'); $orderServiceId = DB::table('proforma_servicios')->where('proforma_id', $id)->value('id'); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'receta', 'origen_id' => $detailId]); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'servicio_producto', 'origen_id' => $productServiceId]); $this->assertDatabaseHas('proforma_materiales_snapshot', ['proforma_id' => $id, 'origen_tipo' => 'servicio_pedido', 'origen_id' => $orderServiceId]);
     }
 }
