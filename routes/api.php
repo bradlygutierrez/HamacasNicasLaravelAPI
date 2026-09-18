@@ -24,6 +24,7 @@ use App\Http\Controllers\API\V1\ProcesoProduccionController;
 use App\Http\Controllers\API\V1\ServicioAdicionalController;
 use App\Http\Controllers\API\V1\RecetaHamacaController;
 use App\Http\Controllers\API\V1\ServicioFormulaController;
+use App\Http\Controllers\API\V1\FormulaController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
@@ -85,6 +86,7 @@ Route::delete('/v1/servicios-adicionales/{servicioAdicional}', [ServicioAdiciona
 Route::get('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFormulaController::class, 'show'])->middleware($formulaCostView);
 Route::put('/v1/servicios-adicionales/{servicioAdicional}/formula', [ServicioFormulaController::class, 'update'])->middleware($admin);
 Route::get('/v1/servicios-adicionales/{servicioAdicional}/costos', [ServicioFormulaController::class, 'costs'])->middleware($formulaCostView);
+Route::get('/v1/formulas', [FormulaController::class, 'index'])->middleware($recipeView);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);

@@ -111,6 +111,37 @@ class RecetaHamacaApiTest extends TestCase
         $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertStatus(409);
     }
 
+    public function test_discard_rechecks_state_after_recipe_is_no_longer_a_draft(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $material = $this->material();
+        Sanctum::actingAs($admin);
+
+        $recipe = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
+            'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
+            'mano_obra' => [],
+        ])->assertOk();
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertOk();
+
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/descartar")->assertStatus(409);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $recipe, 'estado' => 'activa']);
+    }
+
+    public function test_formula_summary_is_paginated_and_searchable(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/formulas?search=' . urlencode($hamaca->nombre) . '&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $hamaca->id)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.current_page', 1);
+    }
+
     public function test_recipe_costs_include_material_merma_and_labor(): void
     {
         $admin = $this->user('admin');
@@ -131,21 +162,44 @@ class RecetaHamacaApiTest extends TestCase
         $this->assertSame('257.50', $response->json('data.resumen.costo_produccion'));
     }
 
+    public function test_activation_rechecks_components_that_were_deactivated_after_save(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $material = $this->material();
+        $process = $this->process();
+        Sanctum::actingAs($admin);
+
+        $recipe = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
+            'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
+            'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 7]],
+        ])->assertOk();
+
+        $material->update(['state' => false]);
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertStatus(409);
+
+        $material->update(['state' => true]);
+        $process->update(['state' => false]);
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertStatus(409);
+    }
+
     public function test_service_formula_and_costs_are_hidden_from_vendors(): void
     {
         $admin = $this->user('admin');
         $vendor = $this->user('vendedor');
         $service = $this->service();
         $material = $this->material();
+        $process = $this->process();
         Sanctum::actingAs($admin);
 
         $this->putJson("/api/v1/servicios-adicionales/{$service->id}/formula", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 0.5]],
-            'mano_obra' => [],
+            'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 7]],
         ])->assertOk();
 
         $costs = $this->getJson("/api/v1/servicios-adicionales/{$service->id}/costos")->assertOk();
-        $this->assertSame('3.15', $costs->json('data.resumen.costo_total'));
+        $this->assertSame('10.15', $costs->json('data.resumen.costo_total'));
 
         Sanctum::actingAs($vendor);
         $this->getJson("/api/v1/servicios-adicionales/{$service->id}/formula")->assertForbidden();

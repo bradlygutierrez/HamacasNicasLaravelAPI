@@ -111,12 +111,15 @@ class RecetaHamacaService
 
     public function discard(RecetaHamaca $recipe): RecetaHamaca
     {
-        if ($recipe->estado !== 'borrador') {
-            throw new BusinessRuleException('Solo se puede descartar una receta en borrador.');
-        }
+        return DB::transaction(function () use ($recipe): RecetaHamaca {
+            $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
+            if ($recipe->estado !== 'borrador') {
+                throw new BusinessRuleException('Solo se puede descartar una receta en borrador.');
+            }
 
-        $recipe->update(['estado' => 'descartada']);
+            $recipe->update(['estado' => 'descartada']);
 
-        return $recipe->fresh(['detallesMateriales.material', 'detallesManoObra.proceso']);
+            return $recipe->load(['detallesMateriales.material', 'detallesManoObra.proceso']);
+        });
     }
 }
