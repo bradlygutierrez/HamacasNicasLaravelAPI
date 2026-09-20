@@ -6,6 +6,7 @@ use App\Models\Pedido;
 use App\Models\PedidoMaterial;
 use App\Models\Usuario;
 use App\Support\DecimalMoney;
+use App\Exceptions\BusinessRuleException;
 use Illuminate\Support\Facades\DB;
 
 class PedidoMaterialService
@@ -27,6 +28,7 @@ class PedidoMaterialService
 
     public function update(Pedido $pedido, PedidoMaterial $material, array $data, Usuario $user): PedidoMaterial
     {
+        if (in_array($pedido->estado, ['terminado', 'cancelado'], true)) throw new BusinessRuleException('El pedido ya no permite modificar materiales.', [], 409);
         $row = $pedido->materiales()->findOrFail($material->id);
         $allowed = ['estado', 'cantidad_compra_real', 'observaciones'];
         if ($user->rol === 'admin') $allowed[] = 'costo_compra_real';
