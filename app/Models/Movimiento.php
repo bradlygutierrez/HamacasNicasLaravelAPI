@@ -14,6 +14,7 @@ class Movimiento extends Model
         'inventario_hamaca_id',
         'usuario_id',
         'factura_id',
+        'pedido_id',
         'ubicacion_origen_id',
         'ubicacion_destino_id',
         'tipo', // entrada o salida

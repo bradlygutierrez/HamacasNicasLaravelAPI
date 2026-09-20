@@ -12,6 +12,8 @@ class Factura extends Model
 
 	 protected $fillable = [
         'numero',
+        'pedido_id',
+        'origen',
         'cliente_id',
         'vendedor_id',
         'canal',
@@ -24,6 +26,7 @@ class Factura extends Model
         'subtotal',
         'descuento',
         'tasa_iva',
+        'aplica_iva',
         'monto_iva',
         'aplica_ir',
         'tasa_ir',
@@ -46,5 +49,8 @@ class Factura extends Model
     {
         return $this->hasMany(DetalleFactura::class);
     }
+
+    public function pedido() { return $this->belongsTo(Pedido::class); }
+    public function servicios() { return $this->hasMany(FacturaServicio::class); }
 
 }

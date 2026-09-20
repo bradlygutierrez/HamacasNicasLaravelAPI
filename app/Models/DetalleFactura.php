@@ -12,6 +12,7 @@ class DetalleFactura extends Model
 
 	protected $fillable = [
         'factura_id',
+        'pedido_detalle_id',
         'inventario_hamaca_id',
         'hamaca_id',
         'usuario_id',
@@ -21,6 +22,7 @@ class DetalleFactura extends Model
         'colores_snapshot',
         'cantidad',
         'precio_unitario',
+        'descuento',
         'subtotal',
     ];
 
@@ -38,5 +40,7 @@ class DetalleFactura extends Model
     {
         return $this->belongsTo(Hamaca::class)->withTrashed();
     }
+
+    public function servicios() { return $this->hasMany(DetalleFacturaServicio::class); }
 
 }

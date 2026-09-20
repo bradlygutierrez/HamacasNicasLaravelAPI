@@ -113,6 +113,7 @@ Route::post('/v1/pedidos/{pedido}/estado', [PedidoController::class, 'status'])-
 Route::put('/v1/pedidos/{pedido}/materiales/{pedidoMaterial}', [PedidoController::class, 'material'])->middleware($pedidoOperate);
 Route::put('/v1/pedidos/{pedido}/procesos/{pedidoProceso}', [PedidoController::class, 'process'])->middleware($pedidoOperate);
 Route::get('/v1/pedidos/{pedido}/historial', [PedidoController::class, 'history'])->middleware($pedidoView);
+Route::post('/v1/pedidos/{pedido}/facturar', [PedidoController::class, 'invoice'])->middleware($pedidoConvert);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
+use App\Models\HamacaVariante;
 use App\Models\Material;
 use App\Models\Pedido;
 use App\Models\Proforma;
@@ -281,6 +282,54 @@ class PedidoApiTest extends TestCase
         $secondId = $this->postJson("/api/v1/proformas/{$second->id}/pedido")->assertCreated()->json('data.id');
         $this->postJson("/api/v1/pedidos/{$secondId}/estado", ['estado' => 'cancelado', 'comentario' => 'Cancelado en prueba'])->assertOk();
         $this->assertSame($before, [DB::table('inventario_hamacas')->count(), DB::table('movimientos')->count(), DB::table('facturas')->count(), DB::table('detalle_facturas')->count()]);
+    }
+
+    public function test_terminated_order_is_invoiced_once_with_production_entry_and_sale_exit(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Azul', 'composicion_clave' => 'phase5-' . uniqid(), 'state' => true]);
+        $detail->update(['hamaca_variante_id' => $variant->id]);
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega fase 5 ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $this->finishOrder($pedidoId);
+        $pedidoDetailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
+        $payload = ['canal' => 'pos', 'metodo_pago' => 'efectivo', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId, 'hamaca_variante_id' => $variant->id]]];
+        $first = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertCreated()->json('data');
+        $stock = DB::table('inventario_hamacas')->where('hamaca_variante_id', $variant->id)->where('ubicacion_id', $locationId)->first();
+        $this->assertSame(0, (int) $stock->cantidad);
+        $this->assertDatabaseHas('movimientos', ['pedido_id' => $pedidoId, 'factura_id' => null, 'tipo' => 'entrada', 'cantidad' => 2]);
+        $this->assertDatabaseHas('movimientos', ['pedido_id' => $pedidoId, 'factura_id' => $first['id'], 'tipo' => 'salida', 'cantidad' => 2]);
+        $second = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertOk()->json('data');
+        $this->assertSame($first['id'], $second['id']);
+        $this->assertSame(1, DB::table('facturas')->where('pedido_id', $pedidoId)->count());
+        $this->assertSame(2, DB::table('movimientos')->where('pedido_id', $pedidoId)->count());
+        $this->assertNotNull(DB::table('pedidos')->where('id', $pedidoId)->value('facturado_at'));
+    }
+
+    public function test_order_billing_rejects_unfinished_orders_and_invalid_variants(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega inválida ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $pedidoDetailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
+        $payload = ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId]]];
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(409);
+        $this->finishOrder($pedidoId);
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(422);
+    }
+
+    private function finishOrder(int $pedidoId): void
+    {
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/estado", ['estado' => 'materiales_pendientes'])->assertOk();
+        $materialId = DB::table('pedido_materiales')->where('pedido_id', $pedidoId)->value('id');
+        $this->putJson("/api/v1/pedidos/{$pedidoId}/materiales/{$materialId}", ['estado' => 'listo'])->assertOk();
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/estado", ['estado' => 'materiales_listos'])->assertOk();
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/estado", ['estado' => 'en_produccion'])->assertOk();
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/estado", ['estado' => 'terminado'])->assertOk();
     }
 
     private function acceptedProforma(Usuario $admin, Usuario $vendor): Proforma
