@@ -17,7 +17,7 @@ class FacturaController extends Controller
     {
         if ($request->user()->rol === 'almacenista') abort(403, 'No tenés permiso para consultar facturas.');
         return new FacturaCollection(
-            Factura::with(['cliente', 'usuario', 'pedido'])->when($request->user()->rol === 'vendedor', fn ($q) => $q->where('vendedor_id', $request->user()->id))->latest()->paginate()
+            Factura::with(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios'])->when($request->user()->rol === 'vendedor', fn ($q) => $q->where('vendedor_id', $request->user()->id))->latest()->paginate()
         );
     }
 

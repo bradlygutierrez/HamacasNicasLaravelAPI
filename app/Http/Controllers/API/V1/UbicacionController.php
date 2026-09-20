@@ -14,9 +14,9 @@ class UbicacionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return new UbicacionCollection(Ubicacion::latest()->paginate());
+        return new UbicacionCollection(Ubicacion::latest()->paginate(min(max($request->integer('per_page', 15), 1), 100)));
     }
 
     /**

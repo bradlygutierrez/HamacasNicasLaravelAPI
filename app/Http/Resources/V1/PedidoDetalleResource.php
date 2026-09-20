@@ -11,7 +11,7 @@ class PedidoDetalleResource extends JsonResource
         $role = $request->user()?->rol;
         $commercial = in_array($role, ['admin', 'socio', 'vendedor'], true);
         $internal = in_array($role, ['admin', 'socio'], true);
-        $data = ['id' => $this->id, 'nombre' => $this->hamaca_nombre_snapshot, 'cantidad' => $this->cantidad, 'receta_version_snapshot' => $this->receta_version_snapshot, 'servicios' => PedidoDetalleServicioResource::collection($this->whenLoaded('servicios'))];
+        $data = ['id' => $this->id, 'hamaca_id' => $this->hamaca_id, 'hamaca_variante_id' => $this->hamaca_variante_id, 'nombre' => $this->hamaca_nombre_snapshot, 'cantidad' => $this->cantidad, 'receta_version_snapshot' => $this->receta_version_snapshot, 'servicios' => PedidoDetalleServicioResource::collection($this->whenLoaded('servicios'))];
         if ($commercial) $data += ['precio_unitario' => $this->precio_unitario, 'descuento' => $this->descuento, 'subtotal' => $this->subtotal];
         if ($internal) $data += ['costo_unitario_estimado' => $this->costo_unitario_estimado, 'costo_total_estimado' => $this->costo_total_estimado];
         return $data;

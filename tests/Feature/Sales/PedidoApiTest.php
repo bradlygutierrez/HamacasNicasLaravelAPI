@@ -4,8 +4,11 @@ namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
 use App\Models\HamacaVariante;
+use App\Models\Color;
 use App\Models\Material;
 use App\Models\Pedido;
+use App\Models\PedidoDetalleServicio;
+use App\Models\PedidoServicio;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\ProformaMaterialSnapshot;
@@ -320,6 +323,39 @@ class PedidoApiTest extends TestCase
         $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(409);
         $this->finishOrder($pedidoId);
         $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(422);
+    }
+
+    public function test_billing_copies_detail_ids_colors_and_services_and_factura_index_serializes_them(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $proformaDetail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $color = Color::create(['nombre' => 'Azul snapshot ' . uniqid(), 'codigo_hex' => '#123456', 'state' => true]);
+        $variant = HamacaVariante::create(['hamaca_id' => $proformaDetail->hamaca_id, 'nombre' => 'Azul física', 'composicion_clave' => 'billing-' . uniqid(), 'state' => true]);
+        $variant->colores()->attach($color->id);
+        $proformaDetail->update(['hamaca_variante_id' => $variant->id]);
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $pedidoDetail = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->first();
+        $detailService = PedidoDetalleServicio::create(['pedido_detalle_id' => $pedidoDetail->id, 'servicio_nombre_snapshot' => 'Grabado snapshot', 'alcance_snapshot' => 'producto', 'metodo_calculo_snapshot' => 'fijo', 'detalle' => 'Logo', 'cantidad' => 1, 'precio_unitario' => 25, 'descuento' => 0, 'subtotal' => 25]);
+        $pedidoService = PedidoServicio::create(['pedido_id' => $pedidoId, 'servicio_nombre_snapshot' => 'Envío snapshot', 'alcance_snapshot' => 'pedido', 'metodo_calculo_snapshot' => 'fijo', 'detalle' => 'León', 'cantidad' => 1, 'precio_unitario' => 50, 'descuento' => 0, 'subtotal' => 50]);
+        $this->finishOrder($pedidoId);
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega servicios ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        $invoice = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetail->id]]])->assertCreated()->json('data');
+        $invoiceDetailId = DB::table('detalle_facturas')->where('factura_id', $invoice['id'])->value('id');
+        $this->assertDatabaseHas('detalle_facturas', ['id' => $invoiceDetailId, 'pedido_detalle_id' => $pedidoDetail->id, 'colores_snapshot' => json_encode([$color->nombre])]);
+        $this->assertDatabaseHas('detalle_factura_servicios', ['pedido_detalle_servicio_id' => $detailService->id, 'detalle_factura_id' => $invoiceDetailId]);
+        $this->assertDatabaseHas('factura_servicios', ['pedido_servicio_id' => $pedidoService->id, 'factura_id' => $invoice['id']]);
+        $this->getJson('/api/v1/pedidos/' . $pedidoId)->assertOk()->assertJsonPath('data.detalles.0.hamaca_id', $proformaDetail->hamaca_id)->assertJsonPath('data.detalles.0.hamaca_variante_id', $variant->id);
+        $this->getJson('/api/v1/facturas')->assertOk()->assertJsonPath('data.0.pedido_numero', $invoice['pedido_numero'])->assertJsonPath('data.0.origen', 'pedido')->assertJsonStructure(['data' => [['detalles', 'servicios']]]);
+        $detailInvoiceId = $invoiceDetailId;
+        Sanctum::actingAs($vendor);
+        $this->getJson('/api/v1/detalle_facturas')->assertOk();
+        $this->getJson('/api/v1/detalle_facturas/' . $detailInvoiceId)->assertOk()->assertJsonPath('data.hamaca_nombre', 'Pedido snapshot');
+        $other = $this->user('vendedor2');
+        Sanctum::actingAs($other);
+        $this->getJson('/api/v1/detalle_facturas/' . $detailInvoiceId)->assertForbidden();
+        Sanctum::actingAs($this->user('almacenista'));
+        $this->getJson('/api/v1/detalle_facturas')->assertForbidden();
     }
 
     private function finishOrder(int $pedidoId): void

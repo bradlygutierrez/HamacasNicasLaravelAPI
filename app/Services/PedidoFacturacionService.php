@@ -44,11 +44,12 @@ class PedidoFacturacionService
                     'precio_unitario' => $line['detail']->precio_unitario,
                     'descuento' => $line['detail']->descuento,
                     'subtotal' => $line['detail']->subtotal,
+                    'colores_snapshot' => json_encode($line['variant']->colores->pluck('nombre')->values()->all()),
                 ]);
-                foreach ($line['detail']->servicios as $service) $invoiceDetail->servicios()->create($service->only(['pedido_detalle_servicio_id','servicio_adicional_id','servicio_nombre_snapshot','detalle','cantidad','precio_unitario','descuento','subtotal']));
+                foreach ($line['detail']->servicios as $service) $invoiceDetail->servicios()->create(['pedido_detalle_servicio_id' => $service->id, 'servicio_adicional_id' => $service->servicio_adicional_id, 'servicio_nombre_snapshot' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal]);
                 $this->movement($inventory->id, $user->id, $invoice->id, $pedido->id, $line['detail']->cantidad, $locationId, 'salida');
             }
-            foreach ($pedido->servicios as $service) $invoice->servicios()->create($service->only(['pedido_servicio_id','servicio_adicional_id','servicio_nombre_snapshot','detalle','cantidad','precio_unitario','descuento','subtotal']));
+            foreach ($pedido->servicios as $service) $invoice->servicios()->create(['pedido_servicio_id' => $service->id, 'servicio_adicional_id' => $service->servicio_adicional_id, 'servicio_nombre_snapshot' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal]);
             $pedido->update(['facturado_at' => now()]);
             return [$invoice->fresh($this->invoiceRelations()), true];
         });

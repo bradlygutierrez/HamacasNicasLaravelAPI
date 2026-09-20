@@ -19,6 +19,7 @@ class DetalleFacturaResource extends JsonResource
             'factura_id' => $this->factura_id,
             'inventario_hamaca_id' => $this->inventario_hamaca_id,
             'hamaca' => $this->hamaca_nombre,
+            'hamaca_nombre' => $this->hamaca_nombre,
             'descripcion' => $this->hamaca_descripcion,
             'cantidad' => $this->cantidad,
             'precio_unitario' => $this->precio_unitario,
