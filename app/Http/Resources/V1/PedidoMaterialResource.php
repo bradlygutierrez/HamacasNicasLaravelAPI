@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Resources\V1;
+use Illuminate\Http\Resources\Json\JsonResource;
+class PedidoMaterialResource extends JsonResource { public function toArray($request): array { $internal = in_array($request->user()?->rol, ['admin','socio'], true); $data = ['id'=>$this->id,'nombre'=>$this->material_nombre_snapshot,'material_id'=>$this->material_id,'unidad_consumo'=>$this->unidad_consumo_snapshot,'unidad_compra'=>$this->unidad_compra_snapshot,'cantidad_requerida'=>$this->cantidad_requerida,'cantidad_compra_plan'=>$this->cantidad_compra_plan,'estado'=>$this->estado,'cantidad_compra_real'=>$this->cantidad_compra_real,'observaciones'=>$this->observaciones]; if ($internal) $data += ['precio_compra_snapshot'=>$this->precio_compra_snapshot,'costo_consumo_estimado'=>$this->costo_consumo_estimado,'costo_compra_estimado'=>$this->costo_compra_estimado,'costo_compra_real'=>$this->costo_compra_real]; return $data; } }

@@ -68,6 +68,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ['name' => 'POS'],
                 ['name' => 'Producción'],
                 ['name' => 'Proformas'],
+                ['name' => 'Pedidos'],
                 ['name' => 'Documentacion'],
             ],
             'components' => [
@@ -581,6 +582,28 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ],
                 '/v1/proformas/{proforma}/emitir' => [
                     'post' => ['tags' => ['Proformas'], 'summary' => 'Emitir proforma', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma')], 'responses' => ['200' => ['description' => 'Proforma emitida']]],
+                ],
+                '/v1/proformas/{proforma}/pedido' => [
+                    'post' => ['tags' => ['Pedidos'], 'summary' => 'Convertir proforma aceptada en pedido', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma')], 'responses' => ['201' => ['description' => 'Pedido creado'], '409' => ['description' => 'Proforma no convertible']]],
+                ],
+                '/v1/pedidos' => [
+                    'get' => ['tags' => ['Pedidos'], 'summary' => 'Listar pedidos', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Pedidos paginados']]],
+                ],
+                '/v1/pedidos/{pedido}' => [
+                    'get' => ['tags' => ['Pedidos'], 'summary' => 'Ver pedido', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido')], 'responses' => ['200' => ['description' => 'Pedido']]],
+                    'put' => ['tags' => ['Pedidos'], 'summary' => 'Actualizar logística', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido')], 'responses' => ['200' => ['description' => 'Pedido actualizado']]],
+                ],
+                '/v1/pedidos/{pedido}/estado' => [
+                    'post' => ['tags' => ['Pedidos'], 'summary' => 'Cambiar estado o cancelar', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido')], 'responses' => ['200' => ['description' => 'Estado actualizado'], '409' => ['description' => 'Transición no válida']]],
+                ],
+                '/v1/pedidos/{pedido}/materiales/{pedidoMaterial}' => [
+                    'put' => ['tags' => ['Pedidos'], 'summary' => 'Actualizar abastecimiento', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido'), $this->pathParameter('pedidoMaterial')], 'responses' => ['200' => ['description' => 'Material actualizado']]],
+                ],
+                '/v1/pedidos/{pedido}/procesos/{pedidoProceso}' => [
+                    'put' => ['tags' => ['Pedidos'], 'summary' => 'Actualizar proceso', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido'), $this->pathParameter('pedidoProceso')], 'responses' => ['200' => ['description' => 'Proceso actualizado']]],
+                ],
+                '/v1/pedidos/{pedido}/historial' => [
+                    'get' => ['tags' => ['Pedidos'], 'summary' => 'Historial del pedido', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('pedido')], 'responses' => ['200' => ['description' => 'Historial']]],
                 ],
                 '/v1/documentation' => [
                     'get' => ['tags' => ['Documentacion'], 'summary' => 'Swagger UI', 'responses' => ['200' => ['description' => 'Interfaz Swagger']]],

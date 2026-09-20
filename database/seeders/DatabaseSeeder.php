@@ -188,6 +188,7 @@ class DatabaseSeeder extends Seeder
             ['nombre' => 'Servicios adicionales', 'slug' => 'servicios-adicionales', 'ruta' => '/servicios-adicionales', 'icono' => 'package', 'orden' => 90],
             ['nombre' => 'Fórmulas', 'slug' => 'formulas', 'ruta' => '/formulas', 'icono' => 'flask-conical', 'orden' => 85],
             ['nombre' => 'Proformas', 'slug' => 'proformas', 'ruta' => '/proformas', 'icono' => 'file-text', 'orden' => 95],
+            ['nombre' => 'Pedidos', 'slug' => 'pedidos', 'ruta' => '/pedidos', 'icono' => 'clipboard-list', 'orden' => 96],
         ];
 
         foreach ($pantallas as $pantalla) {
@@ -237,6 +238,7 @@ class DatabaseSeeder extends Seeder
                 'servicios-adicionales' => ['ver', 'crear', 'editar', 'eliminar'],
                 'formulas' => ['ver', 'crear', 'editar', 'eliminar'],
                 'proformas' => ['ver', 'crear', 'editar'],
+                'pedidos' => ['ver', 'crear', 'editar'],
             ],
             'vendedor' => [
                 'dashboard' => ['ver'],
@@ -245,6 +247,7 @@ class DatabaseSeeder extends Seeder
                 'facturas' => ['ver'],
                 'servicios-adicionales' => ['ver'],
                 'proformas' => ['ver', 'crear', 'editar'],
+                'pedidos' => ['ver', 'crear'],
             ],
             'almacenista' => [
                 'dashboard' => ['ver'],
@@ -253,11 +256,13 @@ class DatabaseSeeder extends Seeder
                 'procesos-produccion' => ['ver'],
                 'servicios-adicionales' => ['ver'],
                 'formulas' => ['ver'],
+                'pedidos' => ['ver', 'editar'],
             ],
             'socio' => [
                 'dashboard' => ['ver'],
                 'inventario' => ['ver'],
                 'materiales' => ['ver'],
+                'pedidos' => ['ver'],
                 'procesos-produccion' => ['ver'],
                 'formulas' => ['ver'],
                 'proformas' => ['ver'],

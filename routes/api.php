@@ -27,6 +27,7 @@ use App\Http\Controllers\API\V1\ServicioFormulaController;
 use App\Http\Controllers\API\V1\FormulaController;
 use App\Http\Controllers\API\V1\ClienteController;
 use App\Http\Controllers\API\V1\ProformaController;
+use App\Http\Controllers\API\V1\PedidoController;
 use Illuminate\Support\Facades\Route;
 
 $auth = ['api.key', 'auth:sanctum'];
@@ -39,6 +40,9 @@ $recipeView = ['api.key', 'auth:sanctum', 'role:admin,almacenista,socio'];
 $formulaCostView = ['api.key', 'auth:sanctum', 'role:admin,socio'];
 $proformaView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,socio'];
 $proformaWrite = ['api.key', 'auth:sanctum', 'role:admin,vendedor'];
+$pedidoView = ['api.key', 'auth:sanctum', 'role:admin,vendedor,socio,almacenista'];
+$pedidoConvert = ['api.key', 'auth:sanctum', 'role:admin,vendedor'];
+$pedidoOperate = ['api.key', 'auth:sanctum', 'role:admin,almacenista'];
 
 // Autenticacion administrativa.
 Route::get('/v1/login', [AuthController::class, 'loginInfo']);
@@ -100,6 +104,15 @@ Route::get('/v1/proformas/{proforma}', [ProformaController::class, 'show'])->mid
 Route::put('/v1/proformas/{proforma}', [ProformaController::class, 'update'])->middleware($proformaWrite);
 Route::post('/v1/proformas/{proforma}/emitir', [ProformaController::class, 'emit'])->middleware($proformaWrite);
 Route::post('/v1/proformas/{proforma}/estado', [ProformaController::class, 'status'])->middleware($proformaWrite);
+Route::post('/v1/proformas/{proforma}/pedido', [ProformaController::class, 'convertToPedido'])->middleware($pedidoConvert);
+
+Route::get('/v1/pedidos', [PedidoController::class, 'index'])->middleware($pedidoView);
+Route::get('/v1/pedidos/{pedido}', [PedidoController::class, 'show'])->middleware($pedidoView);
+Route::put('/v1/pedidos/{pedido}', [PedidoController::class, 'update'])->middleware($pedidoOperate);
+Route::post('/v1/pedidos/{pedido}/estado', [PedidoController::class, 'status'])->middleware($pedidoOperate);
+Route::put('/v1/pedidos/{pedido}/materiales/{pedidoMaterial}', [PedidoController::class, 'material'])->middleware($pedidoOperate);
+Route::put('/v1/pedidos/{pedido}/procesos/{pedidoProceso}', [PedidoController::class, 'process'])->middleware($pedidoOperate);
+Route::get('/v1/pedidos/{pedido}/historial', [PedidoController::class, 'history'])->middleware($pedidoView);
 
 // Hamacas y su detalle.
 Route::get('/v1/hamacas', [HamacaController::class, 'index']);

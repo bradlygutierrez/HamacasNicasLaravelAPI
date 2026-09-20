@@ -19,4 +19,5 @@ class Proforma extends Model
     public function servicios() { return $this->hasMany(ProformaServicio::class); }
     public function materialesSnapshot() { return $this->hasMany(ProformaMaterialSnapshot::class); }
     public function manoObraSnapshot() { return $this->hasMany(ProformaManoObraSnapshot::class); }
+    public function pedido() { return $this->hasOne(Pedido::class); }
 }
