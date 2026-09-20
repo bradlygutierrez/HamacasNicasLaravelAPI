@@ -48,6 +48,7 @@ class PedidoApiTest extends TestCase
         $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated();
         $otherProforma = $this->acceptedProforma($admin, $other);
         $otherProforma->update(['estado' => 'emitida']);
+        Sanctum::actingAs($admin);
         $this->postJson("/api/v1/proformas/{$otherProforma->id}/pedido")->assertStatus(409);
     }
 
@@ -65,6 +66,55 @@ class PedidoApiTest extends TestCase
         $materialId = DB::table('pedido_materiales')->where('pedido_id', $id)->value('id');
         $this->putJson("/api/v1/pedidos/{$id}/materiales/{$materialId}", ['estado' => 'listo'])->assertStatus(409);
         $this->putJson("/api/v1/pedidos/{$id}", ['observaciones_internas' => 'No cambiar'])->assertStatus(409);
+    }
+
+    public function test_cancel_requires_real_reason_and_records_history(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'cancelado', 'comentario' => '   '])->assertStatus(422);
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'cancelado', 'comentario' => "  Cliente canceló  "])->assertOk();
+        $this->assertDatabaseHas('pedidos', ['id' => $id, 'estado' => 'cancelado', 'cancelado_por_id' => $admin->id, 'motivo_cancelacion' => 'Cliente canceló']);
+        $this->assertDatabaseHas('pedido_historial_estados', ['pedido_id' => $id, 'estado_anterior' => 'pendiente', 'estado_nuevo' => 'cancelado', 'comentario' => 'Cliente canceló']);
+    }
+
+    public function test_ready_timestamp_is_not_reset_when_material_stays_ready(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $materialId = DB::table('pedido_materiales')->where('pedido_id', $id)->value('id');
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'materiales_pendientes'])->assertOk();
+        $this->putJson("/api/v1/pedidos/{$id}/materiales/{$materialId}", ['estado' => 'listo'])->assertOk();
+        $readyAt = DB::table('pedido_materiales')->where('id', $materialId)->value('listo_at');
+        $this->putJson("/api/v1/pedidos/{$id}/materiales/{$materialId}", ['estado' => 'listo', 'observaciones' => 'Verificado'])->assertOk();
+        $this->assertSame($readyAt, DB::table('pedido_materiales')->where('id', $materialId)->value('listo_at'));
+    }
+
+    public function test_process_transitions_and_completion_are_terminal(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $materialId = DB::table('pedido_materiales')->where('pedido_id', $id)->value('id');
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'materiales_pendientes'])->assertOk();
+        $this->putJson("/api/v1/pedidos/{$id}/materiales/{$materialId}", ['estado' => 'listo'])->assertOk();
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'materiales_listos'])->assertOk();
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'en_produccion'])->assertOk();
+        $processId = DB::table('pedido_procesos')->insertGetId(['pedido_id' => $id, 'proceso_nombre_snapshot' => 'Tejido', 'costo_estimado' => 50, 'estado' => 'pendiente', 'created_at' => now(), 'updated_at' => now()]);
+        $this->putJson("/api/v1/pedidos/{$id}/procesos/{$processId}", ['estado' => 'en_proceso'])->assertOk();
+        $this->putJson("/api/v1/pedidos/{$id}/procesos/{$processId}", ['estado' => 'completado'])->assertOk();
+        $this->putJson("/api/v1/pedidos/{$id}/procesos/{$processId}", ['estado' => 'completado', 'observaciones' => 'No cambiar'])->assertStatus(409);
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'terminado'])->assertOk();
+        $this->assertNotNull(DB::table('pedidos')->where('id', $id)->value('fecha_terminado'));
     }
 
     private function acceptedProforma(Usuario $admin, Usuario $vendor): Proforma

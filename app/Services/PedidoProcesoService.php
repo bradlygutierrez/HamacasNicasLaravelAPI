@@ -6,6 +6,7 @@ use App\Models\Pedido;
 use App\Models\PedidoProceso;
 use App\Models\Usuario;
 use App\Support\DecimalMoney;
+use App\Exceptions\BusinessRuleException;
 
 class PedidoProcesoService
 {
@@ -24,9 +25,11 @@ class PedidoProcesoService
     public function update(Pedido $pedido, PedidoProceso $process, array $data, Usuario $user): PedidoProceso
     {
         if ($pedido->estado !== 'en_produccion') abort(409, 'El pedido aún no está en producción.');
-        $row = $pedido->procesos()->findOrFail($process->id); $next = $data['estado'] ?? $row->estado;
+        $row = $pedido->procesos()->findOrFail($process->id);
+        if ($row->estado === 'completado') throw new BusinessRuleException('El proceso completado es inmutable.', [], 409);
+        $next = $data['estado'] ?? $row->estado;
         if ($row->estado !== $next && !in_array([$row->estado, $next], [['pendiente', 'en_proceso'], ['pendiente', 'completado'], ['en_proceso', 'completado']], true)) abort(409, 'La transición del proceso no es válida.');
-        $changes = array_intersect_key($data, array_flip(['estado', 'observaciones'])); if ($next === 'en_proceso' && !$row->iniciado_at) $changes['iniciado_at'] = now(); if ($next === 'completado') { if (!$row->iniciado_at) $changes['iniciado_at'] = now(); $changes['completado_at'] = now(); } $changes['actualizado_por_id'] = $user->id; $row->update($changes); return $row->fresh();
+        $changes = array_intersect_key($data, array_flip(['estado', 'observaciones'])); if ($next === 'en_proceso' && !$row->iniciado_at) $changes['iniciado_at'] = now(); if ($next === 'completado') { if (!$row->iniciado_at) $changes['iniciado_at'] = now(); if ($row->estado !== 'completado') $changes['completado_at'] = now(); } $changes['actualizado_por_id'] = $user->id; $row->update($changes); return $row->fresh();
     }
     public function allComplete(Pedido $pedido): bool { return !$pedido->procesos()->exists() || !$pedido->procesos()->where('estado', '!=', 'completado')->exists(); }
 }

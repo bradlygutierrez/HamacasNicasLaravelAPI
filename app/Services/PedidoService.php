@@ -41,7 +41,7 @@ class PedidoService
             if ($state === 'en_produccion') $pedido->fecha_inicio_produccion ??= now();
             if ($state === 'terminado' && !$this->processes->allComplete($pedido)) throw new BusinessRuleException('Todos los procesos deben estar completados.');
             if ($state === 'terminado') $pedido->fecha_terminado = now();
-            if ($state === 'cancelado') { if ($user->rol !== 'admin') throw new BusinessRuleException('Solo admin puede cancelar pedidos.', [], 403); if (!$comment) throw new BusinessRuleException('El motivo de cancelación es obligatorio.', [], 422); $pedido->cancelado_at = now(); $pedido->cancelado_por_id = $user->id; $pedido->motivo_cancelacion = $comment; }
+            if ($state === 'cancelado') { if ($user->rol !== 'admin') throw new BusinessRuleException('Solo admin puede cancelar pedidos.', [], 403); $comment = trim((string) $comment); if ($comment === '') throw new BusinessRuleException('El motivo de cancelación es obligatorio.', [], 422); $pedido->cancelado_at = now(); $pedido->cancelado_por_id = $user->id; $pedido->motivo_cancelacion = $comment; }
             $previous = $pedido->estado; $pedido->estado = $state; $pedido->save(); $this->history($pedido, $previous, $state, $user, $comment); return $pedido->fresh($this->relations());
         });
     }

@@ -34,7 +34,7 @@ class PedidoMaterialService
         if ($user->rol === 'admin') $allowed[] = 'costo_compra_real';
         $changes = array_intersect_key($data, array_flip($allowed));
         $this->assertState($row->estado, $changes['estado'] ?? $row->estado);
-        if (($changes['estado'] ?? null) === 'listo') $changes['listo_at'] = now();
+        if (($changes['estado'] ?? null) === 'listo' && $row->estado !== 'listo') $changes['listo_at'] = now();
         $changes['actualizado_por_id'] = $user->id;
         $row->update($changes);
         return $row->fresh();
