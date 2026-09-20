@@ -27,8 +27,8 @@ class PedidoResource extends JsonResource
             'correo' => $this->correo,
             'vendedor_id' => $this->vendedor_id,
             'vendedor' => $this->whenLoaded('vendedor', fn () => ['id' => $this->vendedor?->id, 'nombre' => $this->vendedor?->nombre]),
-            'fecha_pedido' => $this->fecha_pedido,
-            'fecha_entrega_estimada' => $this->fecha_entrega_estimada,
+            'fecha_pedido' => $this->fecha_pedido?->format('Y-m-d'),
+            'fecha_entrega_estimada' => $this->fecha_entrega_estimada?->format('Y-m-d'),
             'fecha_inicio_produccion' => $this->fecha_inicio_produccion,
             'fecha_terminado' => $this->fecha_terminado,
             'observaciones_cliente' => $this->observaciones_cliente,
@@ -40,7 +40,7 @@ class PedidoResource extends JsonResource
             'progreso' => $this->progress(),
             'historial' => PedidoHistorialResource::collection($this->whenLoaded('historial')),
         ];
-        if ($commercial) $data['resumen_comercial'] = ['subtotal_productos' => $this->subtotal_productos, 'subtotal_servicios' => $this->subtotal_servicios, 'descuento_total' => $this->descuento_total, 'base_neta' => $this->base_neta, 'monto_iva' => $this->monto_iva, 'monto_ir' => $this->monto_ir, 'total' => $this->total];
+        if ($commercial) { $data['total'] = $this->total; $data['resumen_comercial'] = ['subtotal_productos' => $this->subtotal_productos, 'subtotal_servicios' => $this->subtotal_servicios, 'descuento_total' => $this->descuento_total, 'base_neta' => $this->base_neta, 'monto_iva' => $this->monto_iva, 'monto_ir' => $this->monto_ir, 'total' => $this->total]; }
         if ($internal) $data['analisis_interno'] = ['subtotal_productos' => $this->subtotal_productos, 'subtotal_servicios' => $this->subtotal_servicios, 'subtotal_bruto' => $this->subtotal_bruto, 'descuento_total' => $this->descuento_total, 'base_neta' => $this->base_neta, 'aplica_iva' => $this->aplica_iva, 'tasa_iva' => $this->tasa_iva, 'monto_iva' => $this->monto_iva, 'aplica_ir' => $this->aplica_ir, 'tasa_ir' => $this->tasa_ir, 'monto_ir' => $this->monto_ir, 'tasa_comision_vendedor' => $this->tasa_comision_vendedor, 'monto_comision_vendedor' => $this->monto_comision_vendedor, 'costo_materiales_estimado' => $this->costo_materiales_estimado, 'costo_mano_obra_estimado' => $this->costo_mano_obra_estimado, 'costo_servicios_base_estimado' => $this->costo_servicios_base_estimado, 'costo_total_estimado' => $this->costo_total_estimado, 'costo_compra_estimado' => $this->costo_compra_estimado, 'costo_compra_real_total' => $this->realPurchaseCost(), 'utilidad_estimada' => $this->utilidad_estimada, 'total' => $this->total];
         return $data;
     }

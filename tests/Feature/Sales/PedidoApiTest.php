@@ -8,7 +8,11 @@ use App\Models\Pedido;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\ProformaMaterialSnapshot;
+use App\Models\ProformaManoObraSnapshot;
+use App\Models\ProformaServicio;
+use App\Models\ProcesoProduccion;
 use App\Models\RecetaHamaca;
+use App\Models\ServicioAdicional;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +119,84 @@ class PedidoApiTest extends TestCase
         $this->putJson("/api/v1/pedidos/{$id}/procesos/{$processId}", ['estado' => 'completado', 'observaciones' => 'No cambiar'])->assertStatus(409);
         $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'terminado'])->assertOk();
         $this->assertNotNull(DB::table('pedidos')->where('id', $id)->value('fecha_terminado'));
+    }
+
+    public function test_copy_header_maps_proforma_labor_cost_to_pedido_column_and_resource(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        $proforma->update(['costo_mano_de_obra_estimado' => '875.50']);
+
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido", ['fecha_entrega_estimada' => '2026-10-15'])->assertCreated()->json('data.id');
+
+        $this->assertDatabaseHas('pedidos', ['id' => $id, 'costo_mano_obra_estimado' => '875.50']);
+        $response = $this->getJson("/api/v1/pedidos/{$id}")->assertOk()->assertJsonPath('data.analisis_interno.costo_mano_obra_estimado', '875.50');
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $response->json('data.fecha_pedido'));
+        $this->assertSame('2026-10-15', $response->json('data.fecha_entrega_estimada'));
+    }
+
+    public function test_conversion_builds_grouped_process_plan_from_proforma_snapshots(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        $detailId = DB::table('proforma_detalles')->where('proforma_id', $proforma->id)->value('id');
+        $process = ProcesoProduccion::create(['nombre' => 'Tejido ' . uniqid(), 'state' => true]);
+        ProformaManoObraSnapshot::create(['proforma_id' => $proforma->id, 'origen_tipo' => 'receta', 'origen_id' => $detailId, 'proceso_produccion_id' => $process->id, 'proceso_nombre_snapshot' => $process->nombre, 'costo_unitario_snapshot' => '100.00', 'factor_cantidad' => '1.0000', 'costo_total' => '100.00', 'orden' => 2]);
+        ProformaManoObraSnapshot::create(['proforma_id' => $proforma->id, 'origen_tipo' => 'receta', 'origen_id' => $detailId, 'proceso_produccion_id' => $process->id, 'proceso_nombre_snapshot' => $process->nombre, 'costo_unitario_snapshot' => '75.00', 'factor_cantidad' => '1.0000', 'costo_total' => '75.00', 'orden' => 1]);
+
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+
+        $this->assertDatabaseCount('pedido_procesos', 1);
+        $this->assertDatabaseHas('pedido_procesos', ['pedido_id' => $id, 'proceso_produccion_id' => $process->id, 'proceso_nombre_snapshot' => $process->nombre, 'orden' => 1, 'costo_estimado' => '175.00']);
+    }
+
+    public function test_conversion_uses_only_proforma_snapshots_after_catalog_changes(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        $detailId = DB::table('proforma_detalles')->where('proforma_id', $proforma->id)->value('id');
+        $materialId = DB::table('proforma_materiales_snapshot')->where('proforma_id', $proforma->id)->value('material_id');
+        $hamaca = Hamaca::findOrFail(DB::table('proforma_detalles')->where('id', $detailId)->value('hamaca_id'));
+        $recipeId = DB::table('proforma_detalles')->where('id', $detailId)->value('receta_hamaca_id');
+        $service = ServicioAdicional::create(['nombre' => 'Envío snapshot ' . uniqid(), 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 150, 'costo_actual' => 80, 'state' => true]);
+        ProformaServicio::create(['proforma_id' => $proforma->id, 'servicio_adicional_id' => $service->id, 'servicio_nombre_snapshot' => 'Envío original', 'alcance_snapshot' => 'pedido', 'metodo_calculo_snapshot' => 'manual', 'detalle' => 'Original', 'cantidad' => 1, 'precio_unitario' => 150, 'subtotal' => 150, 'costo_base_unitario_snapshot' => 80, 'costo_unitario_estimado' => 80, 'costo_total_estimado' => 80]);
+        $proforma->update(['subtotal_servicios' => 150, 'subtotal_bruto' => 2150, 'base_neta' => 2150, 'total' => 2150, 'costo_servicios_base_estimado' => 80, 'costo_total_estimado' => 1580, 'utilidad_estimada' => 465]);
+        Material::findOrFail($materialId)->update(['precio_actual' => 900]);
+        RecetaHamaca::findOrFail($recipeId)->update(['estado' => 'archivada']);
+        RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 4, 'estado' => 'activa', 'usuario_id' => $admin->id]);
+        $hamaca->update(['precio' => 2500]);
+        $service->update(['precio_venta_actual' => 999, 'costo_actual' => 999]);
+
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+
+        $this->assertDatabaseHas('pedido_detalles', ['pedido_id' => $id, 'precio_unitario' => '1000.00', 'receta_version_snapshot' => 3]);
+        $this->assertDatabaseHas('pedido_materiales', ['pedido_id' => $id, 'precio_compra_snapshot' => '600.00', 'cantidad_requerida' => '250.0000']);
+        $this->assertDatabaseHas('pedido_servicios', ['pedido_id' => $id, 'precio_unitario' => '150.00', 'costo_base_unitario_snapshot' => '80.00']);
+        $this->assertDatabaseHas('pedidos', ['id' => $id, 'total' => '2150.00', 'costo_servicios_base_estimado' => '80.00', 'costo_total_estimado' => '1580.00', 'utilidad_estimada' => '465.00']);
+    }
+
+    public function test_only_admin_can_cancel_and_terminated_orders_are_terminal(): void
+    {
+        $admin = $this->user('admin');
+        $vendor = $this->user('vendedor');
+        $warehouse = $this->user('almacenista');
+        $proforma = $this->acceptedProforma($admin, $vendor);
+        Sanctum::actingAs($admin);
+        $id = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+
+        Sanctum::actingAs($warehouse);
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'cancelado', 'comentario' => 'No'])->assertForbidden();
+        Sanctum::actingAs($vendor);
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'cancelado', 'comentario' => 'No'])->assertForbidden();
+        Pedido::whereKey($id)->update(['estado' => 'terminado']);
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/v1/pedidos/{$id}/estado", ['estado' => 'cancelado', 'comentario' => 'No'])->assertStatus(409);
     }
 
     private function acceptedProforma(Usuario $admin, Usuario $vendor): Proforma
