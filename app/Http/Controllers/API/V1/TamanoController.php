@@ -50,23 +50,16 @@ class TamanoController extends Controller
      */
     public function update(Request $request, Tamano $tamano)
     {
-        try {
-            $validated = $request->validate([
-                'nombre' => 'sometimes|required|string|max:255',
-                'descripcion' => 'sometimes|nullable|string',
-            ]);
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:255',
+            'descripcion' => 'sometimes|nullable|string',
+        ]);
 
-            $tamano->update($validated);
-            return response()->json([
-                'message' => 'Tamano actualizado exitosamente',
-                'data' => new TamanoResource($tamano)
-            ], 200);
-        } catch (exec $e) {
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors(),
-            ], 422);
-        }
+        $tamano->update($validated);
+        return response()->json([
+            'message' => 'Tamano actualizado exitosamente',
+            'data' => new TamanoResource($tamano)
+        ], 200);
     }
 
     /**

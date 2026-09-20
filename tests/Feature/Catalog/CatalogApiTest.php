@@ -43,6 +43,22 @@ class CatalogApiTest extends TestCase
             ->assertJsonCount(2, 'data.hamacas');
     }
 
+    public function test_admin_can_create_list_update_and_validate_tamano(): void
+    {
+        $admin = $this->seedAdmin();
+        Sanctum::actingAs($admin);
+
+        $created = $this->postJson('/api/v1/tamanos', ['nombre' => 'Individual QA', 'descripcion' => '90 x 190 cm'])
+            ->assertCreated()
+            ->json('data');
+
+        $this->getJson('/api/v1/tamanos')->assertOk()->assertJsonFragment(['nombre' => 'Individual QA']);
+        $this->putJson('/api/v1/tamanos/' . $created['id'], ['nombre' => 'Individual actualizado'])
+            ->assertOk()
+            ->assertJsonPath('data.nombre', 'Individual actualizado');
+        $this->postJson('/api/v1/tamanos', ['descripcion' => 'Falta nombre'])->assertStatus(422);
+    }
+
     private function seedAdmin(): Usuario
     {
         DB::table('usuarios')->updateOrInsert(
