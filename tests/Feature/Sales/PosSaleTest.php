@@ -83,6 +83,27 @@ class PosSaleTest extends TestCase
         ]);
     }
 
+    public function test_pos_sale_has_only_a_direct_sale_exit(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+
+        $response = $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'items' => [['inventario_hamaca_id' => $seed['inventario_id'], 'cantidad' => 2]],
+        ])->assertCreated();
+
+        $invoiceId = $response->json('data.id');
+        $this->assertDatabaseHas('inventario_hamacas', ['id' => $seed['inventario_id'], 'cantidad' => 3]);
+        $this->assertDatabaseHas('facturas', ['id' => $invoiceId, 'origen' => 'venta_directa', 'pedido_id' => null]);
+        $this->assertSame(1, DB::table('movimientos')->where('factura_id', $invoiceId)->where('tipo', 'salida')->count());
+        $this->assertSame(0, DB::table('movimientos')->where('factura_id', $invoiceId)->where('tipo', 'entrada')->count());
+        $this->assertSame(0, DB::table('movimientos')->where('factura_id', $invoiceId)->whereNotNull('pedido_id')->count());
+    }
+
     public function test_pos_sale_rejects_repeated_inventory_that_exceeds_total_stock(): void
     {
         $vendedor = $this->userWithRole('vendedor');

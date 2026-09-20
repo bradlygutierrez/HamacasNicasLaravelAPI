@@ -9,6 +9,7 @@ use App\Models\Material;
 use App\Models\Pedido;
 use App\Models\PedidoDetalleServicio;
 use App\Models\PedidoServicio;
+use App\Services\PedidoFacturacionService;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\ProformaMaterialSnapshot;
@@ -356,6 +357,46 @@ class PedidoApiTest extends TestCase
         $this->getJson('/api/v1/detalle_facturas/' . $detailInvoiceId)->assertForbidden();
         Sanctum::actingAs($this->user('almacenista'));
         $this->getJson('/api/v1/detalle_facturas')->assertForbidden();
+    }
+
+    public function test_billing_existing_stock_keeps_net_stock_unchanged(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Stock existente', 'composicion_clave' => 'existing-' . uniqid(), 'state' => true]);
+        $detail->update(['hamaca_variante_id' => $variant->id]);
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega stock ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('inventario_hamacas')->insert(['hamaca_id' => $variant->hamaca_id, 'hamaca_variante_id' => $variant->id, 'usuario_id' => $admin->id, 'ubicacion_id' => $locationId, 'composicion_clave' => $variant->composicion_clave, 'cantidad' => 5, 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $this->finishOrder($pedidoId);
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id')]]])->assertCreated();
+        $inventory = DB::table('inventario_hamacas')->where('hamaca_variante_id', $variant->id)->where('usuario_id', $admin->id)->where('ubicacion_id', $locationId)->first();
+        $this->assertSame(5, (int) $inventory->cantidad);
+        $this->assertSame(1, DB::table('movimientos')->where('pedido_id', $pedidoId)->where('tipo', 'entrada')->count());
+        $this->assertSame(1, DB::table('movimientos')->where('pedido_id', $pedidoId)->where('tipo', 'salida')->count());
+    }
+
+    public function test_billing_rolls_back_after_production_entry_when_invoice_creation_fails(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Rollback', 'composicion_clave' => 'rollback-' . uniqid(), 'state' => true]);
+        $detail->update(['hamaca_variante_id' => $variant->id]);
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega rollback ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $this->finishOrder($pedidoId);
+        $before = [DB::table('inventario_hamacas')->count(), DB::table('movimientos')->count(), DB::table('facturas')->count(), DB::table('detalle_facturas')->count()];
+        DB::listen(function ($query): void { if (str_contains(strtolower($query->sql), 'insert into `facturas`')) throw new \RuntimeException('forced invoice failure'); });
+        try {
+            app(PedidoFacturacionService::class)->facturar(Pedido::findOrFail($pedidoId), $admin, ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id')]]]);
+            $this->fail('La facturación debía fallar.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('forced invoice failure', $exception->getMessage());
+        }
+        $this->assertSame($before, [DB::table('inventario_hamacas')->count(), DB::table('movimientos')->count(), DB::table('facturas')->count(), DB::table('detalle_facturas')->count()]);
+        $this->assertNull(DB::table('pedidos')->where('id', $pedidoId)->value('facturado_at'));
     }
 
     private function finishOrder(int $pedidoId): void

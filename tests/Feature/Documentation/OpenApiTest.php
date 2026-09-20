@@ -19,7 +19,8 @@ class OpenApiTest extends TestCase
             ->assertJsonPath('paths./v1/movimientos/monthly-entries.get.summary', 'Entradas mensuales')
             ->assertJsonPath('paths./v1/inventario-hamacas.get.summary', 'Listar inventario')
             ->assertJsonPath('paths./v1/pos/ventas.post.summary', 'Registrar venta POS')
-            ->assertJsonPath('paths./v1/facturas.get.summary', 'Listado de facturas');
+            ->assertJsonPath('paths./v1/facturas.get.summary', 'Listado de facturas')
+            ->assertJsonPath('paths./v1/pedidos/{pedido}/facturar.post.summary', 'Facturar pedido terminado');
     }
 
     public function test_documentation_ui_is_available(): void
