@@ -15,9 +15,12 @@ class DetalleFacturaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return new DetalleFacturaCollection(DetalleFactura::latest()->paginate());
+        $this->authorizeAccess($request);
+        $query = DetalleFactura::with(['factura', 'servicios'])->latest();
+        if ($request->user()->rol === 'vendedor') $query->whereHas('factura', fn ($q) => $q->where('vendedor_id', $request->user()->id));
+        return new DetalleFacturaCollection($query->paginate());
     }
 
     /**
@@ -43,9 +46,10 @@ class DetalleFacturaController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(DetalleFactura $detalleFactura)
+    public function show(Request $request, DetalleFactura $detalleFactura)
     {
-        return new DetalleFacturaResource($detalleFactura);
+        $this->authorizeAccess($request, $detalleFactura);
+        return new DetalleFacturaResource($detalleFactura->load(['factura', 'servicios']));
     }
 
     /**
@@ -77,5 +81,12 @@ class DetalleFacturaController extends Controller
         return response()->json([
             'message' => 'Detalle de factura eliminado correctamente'
         ], 200);
+    }
+
+    private function authorizeAccess(Request $request, ?DetalleFactura $detalleFactura = null): void
+    {
+        $role = $request->user()->rol;
+        if ($role === 'almacenista') abort(403, 'No tenés permiso para consultar detalles de factura.');
+        if ($role === 'vendedor' && $detalleFactura && $detalleFactura->factura()->where('vendedor_id', $request->user()->id)->doesntExist()) abort(403, 'No tenés acceso a este detalle de factura.');
     }
 }

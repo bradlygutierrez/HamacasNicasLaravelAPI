@@ -31,6 +31,8 @@ class PedidoResource extends JsonResource
             'fecha_entrega_estimada' => $this->fecha_entrega_estimada?->format('Y-m-d'),
             'fecha_inicio_produccion' => $this->fecha_inicio_produccion,
             'fecha_terminado' => $this->fecha_terminado,
+            'facturado_at' => $this->facturado_at,
+            'factura' => $this->whenLoaded('factura', fn () => $this->factura ? ['id' => $this->factura->id, 'numero' => $this->factura->numero] : null),
             'observaciones_cliente' => $this->observaciones_cliente,
             'observaciones_internas' => $this->when($internal || $role === 'almacenista', $this->observaciones_internas),
             'detalles' => PedidoDetalleResource::collection($this->whenLoaded('detalles')),

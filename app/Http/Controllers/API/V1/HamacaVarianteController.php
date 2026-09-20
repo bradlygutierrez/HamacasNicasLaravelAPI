@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class HamacaVarianteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $variantes = HamacaVariante::with([
             'hamaca.categoria',
@@ -23,8 +23,9 @@ class HamacaVarianteController extends Controller
             'inventarios.usuario',
         ])
             ->where('state', true)
+            ->when($request->filled('hamaca_id'), fn ($query) => $query->where('hamaca_id', $request->integer('hamaca_id')))
             ->latest()
-            ->paginate();
+            ->paginate(min(max($request->integer('per_page', 15), 1), 100));
 
         return HamacaVarianteResource::collection($variantes);
     }

@@ -35,6 +35,16 @@ class RoleAuthorizationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_admin_user_listing_honors_per_page_with_safe_maximum(): void
+    {
+        $usuario = $this->seedUser('admin');
+        Sanctum::actingAs($usuario);
+
+        $this->getJson('/api/v1/usuarios?per_page=1000')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 100);
+    }
+
     private function seedUser(string $role): Usuario
     {
         DB::table('usuarios')->updateOrInsert(

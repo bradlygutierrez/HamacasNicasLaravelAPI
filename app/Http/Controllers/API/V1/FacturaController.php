@@ -13,18 +13,20 @@ class FacturaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
+        if ($request->user()->rol === 'almacenista') abort(403, 'No tenés permiso para consultar facturas.');
         return new FacturaCollection(
-            Factura::with(['cliente', 'usuario', 'detalles'])->latest()->paginate()
+            Factura::with(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios'])->when($request->user()->rol === 'vendedor', fn ($q) => $q->where('vendedor_id', $request->user()->id))->latest()->paginate()
         );
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function show(Factura $factura)
+    public function show(\Illuminate\Http\Request $request, Factura $factura)
     {
-        return new FacturaResource($factura->load(['cliente', 'usuario', 'detalles']));
+        if ($request->user()->rol === 'almacenista' || ($request->user()->rol === 'vendedor' && $factura->vendedor_id !== $request->user()->id)) abort(403, 'No tenés acceso a esta factura.');
+        return new FacturaResource($factura->load(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios']));
     }
 }

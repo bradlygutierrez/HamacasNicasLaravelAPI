@@ -15,7 +15,7 @@ class FacturaCollection extends ResourceCollection
     public function toArray($request): array
     {
         return [
-            'data' => $this -> collection, 
+            'data' => FacturaResource::collection($this->collection),
             'meta' =>[
                 'Organization' => 'Hamacas Nica',
                 'author' => 'Bradly Gutierrez',

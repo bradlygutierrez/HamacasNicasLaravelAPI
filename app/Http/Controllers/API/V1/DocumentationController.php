@@ -224,6 +224,9 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         'type' => 'object',
                         'properties' => [
                             'id' => ['type' => 'integer'],
+                            'pedido_id' => ['type' => 'integer', 'nullable' => true],
+                            'pedido_numero' => ['type' => 'string', 'nullable' => true],
+                            'origen' => ['type' => 'string', 'enum' => ['venta_directa', 'pedido']],
                             'cliente_id' => ['type' => 'integer', 'nullable' => true],
                             'vendedor_id' => ['type' => 'integer', 'nullable' => true],
                             'canal' => ['type' => 'string', 'example' => 'pos'],
@@ -231,6 +234,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                             'iva' => ['type' => 'number', 'format' => 'float'],
                             'ir' => ['type' => 'number', 'format' => 'float'],
                             'total' => ['type' => 'number', 'format' => 'float'],
+                            'servicios' => ['type' => 'array'],
                         ],
                     ],
                     'DetalleFactura' => [
@@ -238,6 +242,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         'properties' => [
                             'id' => ['type' => 'integer'],
                             'factura_id' => ['type' => 'integer'],
+                            'hamaca_nombre' => ['type' => 'string'],
                             'inventario_hamaca_id' => ['type' => 'integer'],
                             'cantidad' => ['type' => 'integer'],
                             'precio_unitario' => ['type' => 'number', 'format' => 'float'],
@@ -513,6 +518,39 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ],
                 '/v1/facturas/{factura}' => [
                     'get' => ['tags' => ['Facturas'], 'summary' => 'Ver factura', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('factura')], 'responses' => ['200' => ['description' => 'Factura']]],
+                ],
+                '/v1/pedidos/{pedido}/facturar' => [
+                    'post' => [
+                        'tags' => ['Pedidos'],
+                        'summary' => 'Facturar pedido terminado',
+                        'security' => [['bearerAuth' => []]],
+                        'parameters' => [$this->pathParameter('pedido')],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['canal', 'ubicacion_id', 'lineas'],
+                                        'properties' => [
+                                            'canal' => ['type' => 'string', 'enum' => ['pos', 'ecommerce']],
+                                            'metodo_pago' => ['type' => 'string', 'nullable' => true],
+                                            'ubicacion_id' => ['type' => 'integer'],
+                                            'usuario_inventario_id' => ['type' => 'integer', 'nullable' => true],
+                                            'lineas' => ['type' => 'array'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Factura existente devuelta por retry'],
+                            '201' => ['description' => 'Factura creada'],
+                            '403' => ['description' => 'Acceso denegado'],
+                            '409' => ['description' => 'Pedido no facturable'],
+                            '422' => ['description' => 'Datos físicos inválidos'],
+                        ],
+                    ],
                 ],
                 '/v1/detalle_facturas' => [
                     'get' => ['tags' => ['Facturas'], 'summary' => 'Listado de detalles de factura', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Listado de detalles']]],

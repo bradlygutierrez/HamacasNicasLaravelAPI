@@ -17,6 +17,9 @@ class FacturaResource extends JsonResource
         return [
             'id' => $this->id,
             'numero' => $this->numero,
+            'pedido_id' => $this->pedido_id,
+            'pedido_numero' => $this->pedido?->numero,
+            'origen' => $this->origen ?? 'venta_directa',
             'cliente' => $this->cliente ? [
                 'id' => $this->cliente->id,
                 'nombre' => $this->cliente->nombre,
@@ -35,12 +38,14 @@ class FacturaResource extends JsonResource
             'descuento' => $this->descuento,
             'monto_iva' => $this->monto_iva,
             'monto_ir' => $this->monto_ir,
+            'aplica_iva' => $this->aplica_iva,
             'total' => $this->total,
             'fecha' => $this->fecha,
             'detalles' => $this->whenLoaded(
                 'detalles',
                 fn () => DetalleFacturaResource::collection($this->detalles)
             ),
+            'servicios' => $this->whenLoaded('servicios', fn () => $this->servicios->map(fn ($service) => ['id' => $service->id, 'nombre' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal])),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at
         ];

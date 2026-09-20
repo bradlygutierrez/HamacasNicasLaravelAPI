@@ -16,9 +16,9 @@ class UsuarioController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return new UsuarioCollection(Usuario::where('state', true)->latest()->paginate(10));
+        return new UsuarioCollection(Usuario::where('state', true)->latest()->paginate(min(max($request->integer('per_page', 10), 1), 100)));
     }
 
     /**
