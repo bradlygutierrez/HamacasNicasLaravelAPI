@@ -5,6 +5,8 @@ namespace Tests\Feature\Sales;
 use App\Models\Hamaca;
 use App\Models\HamacaVariante;
 use App\Models\Material;
+use App\Models\Proforma;
+use App\Models\ProformaDetalle;
 use App\Models\RecetaHamaca;
 use App\Models\RecetaMaterial;
 use App\Models\ServicioAdicional;
@@ -80,6 +82,25 @@ class ProformaApiTest extends TestCase
         $missingPayload = $firstPayload;
         $missingPayload['detalles'][0]['hamaca_variante_id'] = $third->id;
         $this->postJson('/api/v1/proformas', $missingPayload)->assertStatus(422)->assertJsonPath('message', 'La variante seleccionada no tiene una fórmula activa.');
+    }
+
+    public function test_legacy_draft_proforma_is_rejected_with_a_clear_variant_message_when_emitted(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamacaWithRecipe();
+        $proforma = Proforma::create(['vendedor_id' => $admin->id, 'nombre_cliente' => 'Cliente legacy', 'fecha' => now()->toDateString(), 'estado' => 'borrador']);
+        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $hamaca->id, 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => $hamaca->nombre, 'cantidad' => 1, 'precio_unitario' => 1000, 'subtotal' => 1000]);
+        Sanctum::actingAs($admin);
+
+        $legacyPayload = $this->payload($hamaca, $admin->id);
+        $legacyPayload['detalles'][0]['hamaca_variante_id'] = null;
+        $this->postJson('/api/v1/proformas/calcular', $legacyPayload)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Esta proforma contiene productos sin variante. Seleccioná una variante antes de continuar.');
+
+        $this->postJson("/api/v1/proformas/{$proforma->id}/emitir")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Esta proforma contiene productos sin variante. Seleccioná una variante antes de continuar.');
     }
 
     public function test_inactive_client_is_rejected_and_vendor_override_is_not_persisted(): void

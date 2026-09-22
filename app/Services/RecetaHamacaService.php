@@ -19,6 +19,10 @@ class RecetaHamacaService
                 throw new BusinessRuleException('La variante ya tiene un borrador de receta.');
             }
 
+            if ($sourceVariantId !== null && RecetaHamaca::where('hamaca_variante_id', $lockedVariant->id)->where('estado', 'activa')->exists()) {
+                throw new BusinessRuleException('Una variante con fórmula activa debe crear la nueva versión desde su propia fórmula.', [], 422);
+            }
+
             $source = $lockedVariant;
             if ($sourceVariantId !== null) {
                 $source = HamacaVariante::query()

@@ -30,6 +30,7 @@ class FormulaController extends Controller
                 $query->whereHas('hamaca', fn ($hamaca) => $hamaca
                     ->where('nombre', 'like', '%' . $request->string('search') . '%'));
             })
+            ->when($request->filled('hamaca_id'), fn ($query) => $query->where('hamaca_id', $request->integer('hamaca_id')))
             ->latest()
             ->paginate($perPage);
 

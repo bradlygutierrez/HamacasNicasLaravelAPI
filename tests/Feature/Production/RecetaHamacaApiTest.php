@@ -22,14 +22,15 @@ class RecetaHamacaApiTest extends TestCase
     {
         $admin = $this->user('admin');
         $hamaca = $this->hamaca();
+        $variant = $this->variant($hamaca);
         Sanctum::actingAs($admin);
 
-        $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")
+        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
             ->assertCreated()
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.estado', 'borrador');
 
-        $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")
+        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
             ->assertStatus(409)
             ->assertJsonPath('message', 'La variante ya tiene un borrador de receta.');
     }
@@ -38,11 +39,12 @@ class RecetaHamacaApiTest extends TestCase
     {
         $admin = $this->user('admin');
         $hamaca = $this->hamaca();
+        $variant = $this->variant($hamaca);
         $material = $this->material();
         $process = $this->process();
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")->json('data.id');
 
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [
@@ -169,6 +171,7 @@ class RecetaHamacaApiTest extends TestCase
     {
         $admin = $this->user('admin');
         $hamaca = $this->hamaca();
+        $variant = $this->variant($hamaca);
         Sanctum::actingAs($admin);
 
         $this->getJson('/api/v1/formulas?search=' . urlencode($hamaca->nombre) . '&per_page=1')

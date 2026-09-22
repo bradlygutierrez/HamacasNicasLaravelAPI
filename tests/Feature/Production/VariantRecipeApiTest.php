@@ -52,11 +52,16 @@ class VariantRecipeApiTest extends TestCase
         $whiteDraft = $this->postJson("/api/v1/hamaca-variantes/{$white->id}/recetas")->assertCreated()->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$whiteDraft}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 2]], 'mano_obra' => []])->assertOk();
         $this->postJson("/api/v1/recetas-hamaca/{$whiteDraft}/activar")->assertOk();
-        $this->postJson("/api/v1/hamaca-variantes/{$white->id}/recetas")->assertCreated()->assertJsonPath('data.version', 2);
+        $secondWhiteDraft = $this->postJson("/api/v1/hamaca-variantes/{$white->id}/recetas")->assertCreated()->assertJsonPath('data.version', 2)->json('data.id');
         $this->postJson("/api/v1/hamaca-variantes/{$blue->id}/recetas")->assertCreated()->assertJsonPath('data.version', 1);
 
-        $this->assertDatabaseHas('recetas_hamaca', ['id' => $whiteDraft, 'hamaca_variante_id' => $white->id, 'estado' => 'archivada']);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $whiteDraft, 'hamaca_variante_id' => $white->id, 'estado' => 'activa']);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $secondWhiteDraft, 'hamaca_variante_id' => $white->id, 'estado' => 'borrador']);
         $this->assertDatabaseHas('recetas_hamaca', ['hamaca_variante_id' => $blue->id, 'version' => 1, 'estado' => 'borrador']);
+
+        $this->postJson("/api/v1/recetas-hamaca/{$secondWhiteDraft}/activar")->assertOk();
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $whiteDraft, 'estado' => 'archivada']);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $secondWhiteDraft, 'estado' => 'activa']);
     }
 
     public function test_new_variant_can_copy_only_an_active_formula_from_same_model(): void
@@ -79,6 +84,12 @@ class VariantRecipeApiTest extends TestCase
         $copy = $this->postJson("/api/v1/hamaca-variantes/{$target->id}/recetas", ['source_variant_id' => $source->id])->assertCreated();
         $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $copy->json('data.id'), 'material_id' => $material->id]);
         $this->postJson("/api/v1/hamaca-variantes/{$foreign->id}/recetas", ['source_variant_id' => $source->id])->assertStatus(422);
+
+        $this->postJson("/api/v1/recetas-hamaca/{$copy->json('data.id')}/activar")->assertOk();
+        // source_variant_id must not override an active formula on the destination variant.
+        $before = RecetaHamaca::where('hamaca_variante_id', $target->id)->count();
+        $this->postJson("/api/v1/hamaca-variantes/{$target->id}/recetas", ['source_variant_id' => $source->id])->assertStatus(422);
+        $this->assertSame($before, RecetaHamaca::where('hamaca_variante_id', $target->id)->count());
     }
 
     public function test_formula_summary_lists_variants_and_excludes_legacy_recipes_as_rows(): void
