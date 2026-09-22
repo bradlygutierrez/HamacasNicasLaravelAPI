@@ -3,6 +3,7 @@
 namespace Tests\Feature\Inventory;
 
 use App\Models\HamacaVariante;
+use App\Models\RecetaHamaca;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Support\BuildsInventoryFixtures;
@@ -12,6 +13,44 @@ class VariantIntegrityTest extends TestCase
 {
     use BuildsInventoryFixtures;
     use DatabaseTransactions;
+
+    public function test_variant_cannot_change_parent_hamaca(): void
+    {
+        $operador = $this->userWithRole('almacenista');
+        $seed = $this->catalogFixture();
+        $other = $this->catalogFixture(['Negro']);
+        Sanctum::actingAs($operador);
+
+        $this->putJson("/api/v1/hamaca-variantes/{$seed['variante_id']}", [
+            'hamaca_id' => $other['hamaca_id'],
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'La variante no puede cambiar de modelo. Creá una nueva variante.');
+
+        $this->assertDatabaseHas('hamaca_variantes', [
+            'id' => $seed['variante_id'],
+            'hamaca_id' => $seed['hamaca_id'],
+        ]);
+    }
+
+    public function test_variant_with_recipe_cannot_change_color_composition(): void
+    {
+        $operador = $this->userWithRole('almacenista');
+        $seed = $this->catalogFixture();
+        $newColor = $this->catalogFixture(['Dorado'])['color_ids'][0];
+        RecetaHamaca::create([
+            'hamaca_id' => $seed['hamaca_id'],
+            'hamaca_variante_id' => $seed['variante_id'],
+            'version' => 1,
+            'estado' => 'borrador',
+            'usuario_id' => $operador->id,
+        ]);
+        Sanctum::actingAs($operador);
+
+        $this->putJson("/api/v1/hamaca-variantes/{$seed['variante_id']}", [
+            'color_ids' => [$newColor],
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'La variante ya tiene fórmulas asociadas; creá una nueva variante para otra composición de colores.');
+    }
 
     public function test_same_composition_in_different_order_reuses_existing_variant(): void
     {

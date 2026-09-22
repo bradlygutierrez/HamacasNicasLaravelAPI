@@ -27,8 +27,12 @@ class FormulaController extends Controller
                     ->with(['detallesMateriales.material', 'detallesManoObra.proceso']),
             ])
             ->when($request->filled('search'), function ($query) use ($request): void {
-                $query->whereHas('hamaca', fn ($hamaca) => $hamaca
-                    ->where('nombre', 'like', '%' . $request->string('search') . '%'));
+                $search = '%' . $request->string('search') . '%';
+                $query->where(function ($query) use ($search): void {
+                    $query->whereHas('hamaca', fn ($hamaca) => $hamaca->where('nombre', 'like', $search))
+                        ->orWhere('nombre', 'like', $search)
+                        ->orWhereHas('colores', fn ($color) => $color->where('nombre', 'like', $search));
+                });
             })
             ->when($request->filled('hamaca_id'), fn ($query) => $query->where('hamaca_id', $request->integer('hamaca_id')))
             ->latest()

@@ -4,6 +4,7 @@ namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
 use App\Models\HamacaVariante;
+use App\Models\Color;
 use App\Models\Material;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
@@ -77,6 +78,9 @@ class ProformaApiTest extends TestCase
         $firstId = $this->postJson('/api/v1/proformas', $firstPayload)->assertCreated()->json('data.id');
         $secondId = $this->postJson('/api/v1/proformas', $secondPayload)->assertCreated()->json('data.id');
         $this->assertNotSame(DB::table('proforma_detalles')->where('proforma_id', $firstId)->value('receta_hamaca_id'), DB::table('proforma_detalles')->where('proforma_id', $secondId)->value('receta_hamaca_id'));
+        $this->getJson('/api/v1/proformas/productos?search=Azul')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $second->id);
 
         $third = HamacaVariante::create(['hamaca_id' => $hamaca->id, 'nombre' => 'Sin fórmula', 'composicion_clave' => 'sin-formula-' . uniqid(), 'state' => true]);
         $missingPayload = $firstPayload;
@@ -101,6 +105,26 @@ class ProformaApiTest extends TestCase
         $this->postJson("/api/v1/proformas/{$proforma->id}/emitir")
             ->assertStatus(422)
             ->assertJsonPath('message', 'Esta proforma contiene productos sin variante. Seleccioná una variante antes de continuar.');
+    }
+
+    public function test_existing_proforma_detail_includes_variant_metadata(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamacaWithRecipe();
+        $variant = $hamaca->variantes()->firstOrFail();
+        $variant->update(['nombre' => 'Azul / Blanco']);
+        $variant->colores()->sync(collect(['Azul', 'Blanco'])->map(fn ($name) => Color::create(['nombre' => $name . ' ' . uniqid()])->id)->all());
+        Sanctum::actingAs($admin);
+
+        $id = $this->postJson('/api/v1/proformas', $this->payload($hamaca, $admin->id))
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->getJson("/api/v1/proformas/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.detalles.0.variante.id', $variant->id)
+            ->assertJsonPath('data.detalles.0.variante.nombre', 'Azul / Blanco')
+            ->assertJsonStructure(['data' => ['detalles' => [['variante' => ['id', 'nombre', 'colores']]]]]);
     }
 
     public function test_inactive_client_is_rejected_and_vendor_override_is_not_persisted(): void

@@ -103,6 +103,10 @@ class VariantRecipeApiTest extends TestCase
         $response = $this->getJson('/api/v1/formulas?search=' . urlencode($hamaca->nombre));
         $response->assertOk()->assertJsonPath('data.0.id', $variant->id)->assertJsonPath('data.0.variante.nombre', 'Visible');
         $this->assertCount(1, $response->json('data'));
+
+        $this->getJson('/api/v1/formulas?search=Visible')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $variant->id);
     }
 
     private function variant(Hamaca $hamaca, string $name): HamacaVariante
