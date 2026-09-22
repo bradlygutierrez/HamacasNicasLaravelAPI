@@ -48,7 +48,7 @@ class ProformaPdfService
         }
         $company = config('documentos.empresa');
         foreach (['logo', 'firma', 'sello'] as $key) $company[$key] = $this->images->resolve($company[$key] ?? null);
-        return compact('proforma', 'details', 'sheets', 'company') + ['dateFormatted' => $this->formatDate($proforma->fecha), 'isDraft' => $proforma->estado === 'borrador', 'currency' => config('documentos.moneda', 'C$'), 'paymentConditions' => config('documentos.proforma_condiciones_pago')];
+        return compact('proforma', 'details', 'sheets', 'company') + ['number' => $proforma->numero ?: 'Borrador', 'dateFormatted' => $this->formatDate($proforma->fecha), 'isDraft' => $proforma->estado === 'borrador', 'currency' => config('documentos.moneda', 'C$'), 'paymentConditions' => config('documentos.proforma_condiciones_pago')];
     }
 
     private function formatDate($date): ?string
