@@ -120,6 +120,25 @@ class PosSaleTest extends TestCase
         }
     }
 
+    public function test_socio_can_list_invoices_but_almacenista_cannot(): void
+    {
+        Sanctum::actingAs($this->userWithRole('socio'));
+        $this->getJson('/api/v1/facturas')->assertOk();
+
+        Sanctum::actingAs($this->userWithRole('almacenista'));
+        $this->getJson('/api/v1/facturas')->assertForbidden();
+    }
+
+    public function test_invoice_and_inventory_per_page_are_clamped_between_one_and_one_hundred(): void
+    {
+        Sanctum::actingAs($this->userWithRole('socio'));
+        $this->getJson('/api/v1/facturas?per_page=0')->assertOk()->assertJsonPath('meta.per_page', 1);
+
+        $this->inventoryFixture(2);
+        $response = $this->getJson('/api/v1/inventario-hamacas?per_page=1000')->assertOk();
+        $this->assertContains(100, (array) $response->json('meta.per_page'));
+    }
+
     public function test_invoice_index_filters_paginates_and_show_loads_details(): void
     {
         $vendedor = $this->userWithRole('vendedor');

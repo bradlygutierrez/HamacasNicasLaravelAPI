@@ -27,7 +27,9 @@ class FacturaController extends Controller
             ->when($request->filled('origen'), fn ($q) => $q->where('origen', $request->string('origen')->toString()))
             ->latest();
 
-        return new FacturaCollection($query->paginate(min((int) $request->input('per_page', 15), 100)));
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
+
+        return new FacturaCollection($query->paginate($perPage));
     }
 
     /**
