@@ -21,6 +21,17 @@ class UsuarioController extends Controller
         return new UsuarioCollection(Usuario::where('state', true)->latest()->paginate(min(max($request->integer('per_page', 10), 1), 100)));
     }
 
+    public function propietarios()
+    {
+        return UsuarioResource::collection(
+            Usuario::query()
+                ->where('state', true)
+                ->whereIn('rol', ['admin', 'socio'])
+                ->orderBy('nombre')
+                ->get()
+        );
+    }
+
     /**
      * Store a newly created resource in storage.
      */

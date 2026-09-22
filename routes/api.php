@@ -168,6 +168,7 @@ Route::get('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaControl
 Route::delete('/v1/inventario-hamacas/{inventarioHamaca}', [InventarioHamacaController::class, 'destroy'])->middleware($admin);
 
 // Usuarios administrativos.
+Route::get('/v1/usuarios/propietarios', [UsuarioController::class, 'propietarios'])->middleware($inventoryManager);
 Route::get('/v1/usuarios', [UsuarioController::class, 'index'])->middleware($admin);
 Route::get('/v1/usuarios/{usuario}', [UsuarioController::class, 'show'])->middleware($admin);
 Route::post('/v1/usuarios', [UsuarioController::class, 'store'])->middleware($admin);
