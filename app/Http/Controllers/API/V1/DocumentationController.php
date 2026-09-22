@@ -519,6 +519,12 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 '/v1/facturas/{factura}' => [
                     'get' => ['tags' => ['Facturas'], 'summary' => 'Ver factura', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('factura')], 'responses' => ['200' => ['description' => 'Factura']]],
                 ],
+                '/v1/facturas/{factura}/pdf' => [
+                    'get' => ['tags' => ['Facturas'], 'summary' => 'Generar PDF de factura', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('factura'), ['name' => 'download', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'boolean']],], 'responses' => ['200' => ['description' => 'PDF de factura', 'content' => ['application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']]]], '403' => ['description' => 'Acceso denegado']]],
+                ],
+                '/v1/proformas/{proforma}/pdf' => [
+                    'get' => ['tags' => ['Proformas'], 'summary' => 'Generar PDF de proforma', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('proforma'), ['name' => 'download', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'boolean']],], 'responses' => ['200' => ['description' => 'PDF de proforma', 'content' => ['application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']]]], '403' => ['description' => 'Acceso denegado']]],
+                ],
                 '/v1/pedidos/{pedido}/facturar' => [
                     'post' => [
                         'tags' => ['Pedidos'],
