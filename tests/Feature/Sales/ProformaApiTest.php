@@ -131,6 +131,6 @@ class ProformaApiTest extends TestCase
     {
         $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Envío default', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 500, 'costo_actual' => 400, 'state' => true]); Sanctum::actingAs($vendor);
         $payload = array_merge($this->payload($hamaca, null), ['aplica_iva' => true, 'tasa_iva' => 99, 'aplica_ir' => true, 'tasa_ir' => 99, 'tasa_comision_vendedor' => 99, 'servicios_pedido' => [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 500, 'costo_base_unitario_override' => 1]]]);
-        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->assertDatabaseHas('proformas', ['id' => $id, 'tasa_iva' => config('proformas.iva_rate'), 'tasa_ir' => config('proformas.ir_rate'), 'tasa_comision_vendedor' => config('proformas.commission_rate')]); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => null]);
+        $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $this->assertDatabaseHas('proformas', ['id' => $id, 'tasa_iva' => config('comercial.iva_rate'), 'tasa_ir' => config('comercial.ir_rate'), 'tasa_comision_vendedor' => config('proformas.commission_rate')]); $this->assertDatabaseHas('proforma_servicios', ['proforma_id' => $id, 'costo_base_unitario_override' => null]);
     }
 }
