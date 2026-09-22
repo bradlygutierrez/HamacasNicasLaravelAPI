@@ -7,9 +7,11 @@ use App\Models\Factura;
 use App\Http\Resources\V1\FacturaResource;
 use App\Http\Resources\V1\FacturaCollection;
 use Illuminate\Http\Request;
+use App\Services\Documents\FacturaPdfService;
 
 class FacturaController extends Controller
 {
+    public function __construct(private readonly FacturaPdfService $pdfs) {}
     /**
      * Display a listing of the resource.
      */
@@ -37,7 +39,21 @@ class FacturaController extends Controller
      */
     public function show(\Illuminate\Http\Request $request, Factura $factura)
     {
-        if ($request->user()->rol === 'almacenista' || ($request->user()->rol === 'vendedor' && $factura->vendedor_id !== $request->user()->id)) abort(403, 'No tenés acceso a esta factura.');
+        $this->assertAccess($request, $factura);
         return new FacturaResource($factura->load(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios']));
+    }
+
+    public function pdf(Request $request, Factura $factura)
+    {
+        $this->assertAccess($request, $factura);
+        return response($this->pdfs->render($factura)->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="' . $factura->numero . '.pdf"',
+        ]);
+    }
+
+    private function assertAccess(Request $request, Factura $factura): void
+    {
+        if ($request->user()->rol === 'almacenista' || ($request->user()->rol === 'vendedor' && $factura->vendedor_id !== $request->user()->id)) abort(403, 'No tenés acceso a esta factura.');
     }
 }

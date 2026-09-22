@@ -104,6 +104,7 @@ Route::post('/v1/clientes', [ClienteController::class, 'store'])->middleware($cl
 Route::put('/v1/clientes/{cliente}', [ClienteController::class, 'update'])->middleware($clienteWrite);
 Route::delete('/v1/clientes/{cliente}', [ClienteController::class, 'destroy'])->middleware($clienteAdmin);
 Route::get('/v1/proformas/productos', [ProformaController::class, 'products'])->middleware($proformaView);
+Route::get('/v1/proformas/{proforma}/pdf', [ProformaController::class, 'pdf'])->middleware($proformaView);
 Route::get('/v1/proformas', [ProformaController::class, 'index'])->middleware($proformaView);
 Route::post('/v1/proformas/calcular', [ProformaController::class, 'calculate'])->middleware($proformaView);
 Route::post('/v1/proformas', [ProformaController::class, 'store'])->middleware($proformaWrite);
@@ -191,6 +192,7 @@ Route::get('/v1/dashboard/categories/{categoriaId}/stats', [DashboardController:
 
 // Facturacion y POS.
 Route::apiResource('/v1/facturas', FacturaController::class)->only(['index', 'show'])->middleware($auth);
+Route::get('/v1/facturas/{factura}/pdf', [FacturaController::class, 'pdf'])->middleware($auth);
 Route::apiResource('/v1/detalle_facturas', DetalleFacturaController::class)->only(['index', 'show'])->middleware($auth);
 Route::post('/v1/pos/ventas/calcular', [PosVentaController::class, 'calculate'])->middleware($sales);
 Route::post('/v1/pos/ventas', [PosVentaController::class, 'store'])->middleware($sales);

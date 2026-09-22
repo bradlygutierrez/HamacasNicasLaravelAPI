@@ -12,11 +12,12 @@ use App\Models\Hamaca;
 use App\Services\ProformaPricingService;
 use App\Services\ProformaService;
 use App\Services\PedidoService;
+use App\Services\Documents\ProformaPdfService;
 use Illuminate\Http\Request;
 
 class ProformaController extends Controller
 {
-    public function __construct(private readonly ProformaService $service, private readonly ProformaPricingService $pricing, private readonly PedidoService $pedidos)
+    public function __construct(private readonly ProformaService $service, private readonly ProformaPricingService $pricing, private readonly PedidoService $pedidos, private readonly ProformaPdfService $pdfs)
     {
     }
 
@@ -41,6 +42,16 @@ class ProformaController extends Controller
     public function show(Request $request, Proforma $proforma): ProformaResource
     {
         $this->assertOwner($request, $proforma); return new ProformaResource($proforma->load(['cliente', 'vendedor', 'pedido', 'detalles.servicios', 'servicios', 'materialesSnapshot', 'manoObraSnapshot']));
+    }
+
+    public function pdf(Request $request, Proforma $proforma)
+    {
+        $this->assertOwner($request, $proforma);
+        $filename = ($proforma->numero ?: 'PRO-BORRADOR-' . $proforma->id) . '.pdf';
+        return response($this->pdfs->render($proforma)->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="' . $filename . '"',
+        ]);
     }
 
     public function update(ProformaRequest $request, Proforma $proforma): ProformaResource { return new ProformaResource($this->service->updateDraft($proforma, $request->validated(), $request->user())); }
