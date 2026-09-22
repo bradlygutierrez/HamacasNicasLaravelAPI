@@ -19,8 +19,10 @@ class InventarioHamacaController extends Controller
 {
     public function __construct(private readonly InventarioService $service) {}
 
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
+
         return new InventarioHamacaCollection(
             InventarioHamaca::with([
                 'hamaca.categoria',
@@ -31,7 +33,7 @@ class InventarioHamacaController extends Controller
                 'ubicacion',
                 'usuario',
                 'colores',
-            ])->latest()->paginate()
+            ])->latest()->paginate($perPage)
         );
     }
 

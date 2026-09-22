@@ -5,6 +5,7 @@ namespace Tests\Feature\Sales;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Support\BuildsInventoryFixtures;
@@ -30,6 +31,7 @@ class PosSaleTest extends TestCase
             'correo' => 'cliente@example.com',
             'metodo_pago' => 'efectivo',
             'descuento' => 100,
+            'aplica_iva' => true,
             'aplica_ir' => true,
             'items' => [
                 [
@@ -40,11 +42,11 @@ class PosSaleTest extends TestCase
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.subtotal', 3000)
-            ->assertJsonPath('data.descuento', 100)
-            ->assertJsonPath('data.monto_iva', 435)
-            ->assertJsonPath('data.monto_ir', 58)
-            ->assertJsonPath('data.total', 3277)
+            ->assertJsonPath('data.subtotal', '3000.00')
+            ->assertJsonPath('data.descuento', '100.00')
+            ->assertJsonPath('data.monto_iva', '435.00')
+            ->assertJsonPath('data.monto_ir', '58.00')
+            ->assertJsonPath('data.total', '3277.00')
             ->assertJsonPath('data.detalles.0.cantidad', 2);
 
         $this->assertDatabaseHas('inventario_hamacas', [
@@ -56,6 +58,108 @@ class PosSaleTest extends TestCase
             'cantidad' => 2,
             'tipo' => 'salida',
         ]);
+    }
+
+    public function test_preview_calculates_without_mutating_invoice_stock_or_movements(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+        $facturasBefore = DB::table('facturas')->count();
+        $movimientosBefore = DB::table('movimientos')->count();
+
+        $this->postJson('/api/v1/pos/ventas/calcular', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'aplica_iva' => false,
+            'aplica_ir' => true,
+            'items' => [['inventario_hamaca_id' => $seed['inventario_id'], 'cantidad' => 2]],
+        ])->assertOk()
+            ->assertJsonPath('data.subtotal', '2000.00')
+            ->assertJsonPath('data.monto_iva', '0.00')
+            ->assertJsonPath('data.monto_ir', '40.00')
+            ->assertJsonPath('data.total', '1960.00');
+
+        $this->assertSame($facturasBefore, DB::table('facturas')->count());
+        $this->assertSame($movimientosBefore, DB::table('movimientos')->count());
+        $this->assertDatabaseHas('inventario_hamacas', ['id' => $seed['inventario_id'], 'cantidad' => 5]);
+    }
+
+    public function test_pos_sale_uses_configured_iva_rate_and_can_disable_iva(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Config::set('comercial.iva_rate', '20');
+        Sanctum::actingAs($vendedor);
+
+        $response = $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Consumidor final',
+            'metodo_pago' => 'efectivo',
+            'aplica_iva' => true,
+            'aplica_ir' => false,
+            'items' => [['inventario_hamaca_id' => $seed['inventario_id'], 'cantidad' => 1]],
+        ])->assertCreated();
+
+        $response->assertJsonPath('data.tasa_iva', '0.2000')
+            ->assertJsonPath('data.monto_iva', '200.00')
+            ->assertJsonPath('data.monto_ir', '0.00');
+    }
+
+    public function test_socio_and_almacenista_cannot_use_direct_sales(): void
+    {
+        foreach (['socio', 'almacenista'] as $role) {
+            Sanctum::actingAs($this->userWithRole($role));
+            $this->postJson('/api/v1/pos/ventas', [
+                'canal' => 'pos',
+                'nombre_cliente' => 'Consumidor final',
+                'metodo_pago' => 'efectivo',
+                'items' => [['inventario_hamaca_id' => 1, 'cantidad' => 1]],
+            ])->assertForbidden();
+        }
+    }
+
+    public function test_socio_can_list_invoices_but_almacenista_cannot(): void
+    {
+        Sanctum::actingAs($this->userWithRole('socio'));
+        $this->getJson('/api/v1/facturas')->assertOk();
+
+        Sanctum::actingAs($this->userWithRole('almacenista'));
+        $this->getJson('/api/v1/facturas')->assertForbidden();
+    }
+
+    public function test_invoice_and_inventory_per_page_are_clamped_between_one_and_one_hundred(): void
+    {
+        Sanctum::actingAs($this->userWithRole('socio'));
+        $this->getJson('/api/v1/facturas?per_page=0')->assertOk()->assertJsonPath('meta.per_page', 1);
+
+        $this->inventoryFixture(2);
+        $response = $this->getJson('/api/v1/inventario-hamacas?per_page=1000')->assertOk();
+        $this->assertContains(100, (array) $response->json('meta.per_page'));
+    }
+
+    public function test_invoice_index_filters_paginates_and_show_loads_details(): void
+    {
+        $vendedor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(5);
+        Sanctum::actingAs($vendedor);
+        $sale = $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos',
+            'nombre_cliente' => 'Cliente filtrable',
+            'metodo_pago' => 'efectivo',
+            'items' => [['inventario_hamaca_id' => $seed['inventario_id'], 'cantidad' => 1]],
+        ])->assertCreated();
+
+        $invoiceId = $sale->json('data.id');
+        $this->getJson('/api/v1/facturas?search=filtrable&origen=venta_directa&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $invoiceId)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('data.0.origen', 'venta_directa');
+        $this->getJson('/api/v1/facturas/'.$invoiceId)
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['detalles', 'servicios', 'numero', 'canal', 'metodo_pago']]);
     }
 
     public function test_pos_sale_rolls_back_on_insufficient_stock(): void

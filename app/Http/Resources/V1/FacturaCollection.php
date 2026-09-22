@@ -16,10 +16,6 @@ class FacturaCollection extends ResourceCollection
     {
         return [
             'data' => FacturaResource::collection($this->collection),
-            'meta' =>[
-                'Organization' => 'Hamacas Nica',
-                'author' => 'Bradly Gutierrez',
-            ],
             'type' => 'Facturas Collection',
         ];
     }

@@ -36,9 +36,12 @@ class FacturaResource extends JsonResource
             'metodo_pago' => $this->metodo_pago,
             'subtotal' => $this->subtotal,
             'descuento' => $this->descuento,
+            'tasa_iva' => $this->tasa_iva,
             'monto_iva' => $this->monto_iva,
             'monto_ir' => $this->monto_ir,
             'aplica_iva' => $this->aplica_iva,
+            'aplica_ir' => $this->aplica_ir,
+            'tasa_ir' => $this->tasa_ir,
             'total' => $this->total,
             'fecha' => $this->fecha,
             'detalles' => $this->whenLoaded(
