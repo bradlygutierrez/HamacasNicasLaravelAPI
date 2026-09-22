@@ -192,6 +192,7 @@ Route::get('/v1/dashboard/categories/{categoriaId}/stats', [DashboardController:
 // Facturacion y POS.
 Route::apiResource('/v1/facturas', FacturaController::class)->only(['index', 'show'])->middleware($auth);
 Route::apiResource('/v1/detalle_facturas', DetalleFacturaController::class)->only(['index', 'show'])->middleware($auth);
+Route::post('/v1/pos/ventas/calcular', [PosVentaController::class, 'calculate'])->middleware($sales);
 Route::post('/v1/pos/ventas', [PosVentaController::class, 'store'])->middleware($sales);
 
 // Documentacion.

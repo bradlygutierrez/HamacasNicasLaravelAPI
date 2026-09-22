@@ -23,6 +23,7 @@ class StoreVentaRequest extends FormRequest
             'metodo_pago' => 'nullable|string|max:50',
             'canal' => 'required|in:pos,ecommerce',
             'descuento' => 'nullable|numeric|min:0',
+            'aplica_iva' => 'nullable|boolean',
             'aplica_ir' => 'nullable|boolean',
             'items' => 'required|array|min:1',
             'items.*.inventario_hamaca_id' => 'required|integer|distinct|exists:inventario_hamacas,id',

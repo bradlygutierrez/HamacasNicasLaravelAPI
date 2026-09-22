@@ -25,4 +25,12 @@ class PosVentaController extends Controller
             'data' => new FacturaResource($factura),
         ], 201);
     }
+
+    public function calculate(StoreVentaRequest $request)
+    {
+        $calculo = $this->ventaService->calcular($request->validated());
+        unset($calculo['lineas']);
+
+        return response()->json(['data' => $calculo]);
+    }
 }
