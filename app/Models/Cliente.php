@@ -17,7 +17,6 @@ class Cliente extends Model
         'direccion',
         'telefono',
         'correo',
-        'password',
         'state',
     ];
 

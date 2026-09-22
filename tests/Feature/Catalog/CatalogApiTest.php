@@ -21,6 +21,15 @@ class CatalogApiTest extends TestCase
             ->assertOk();
     }
 
+    public function test_hamaca_detail_loads_without_a_direct_colors_relationship(): void
+    {
+        [$hamacaId] = $this->seedBaseCatalog();
+
+        $this->getJson("/api/v1/hamacas/{$hamacaId}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $hamacaId);
+    }
+
     public function test_photo_can_be_shared_between_multiple_hamacas(): void
     {
         $hamacas = $this->seedBaseCatalog();

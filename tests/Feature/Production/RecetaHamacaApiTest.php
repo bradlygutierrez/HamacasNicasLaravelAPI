@@ -29,7 +29,8 @@ class RecetaHamacaApiTest extends TestCase
             ->assertJsonPath('data.estado', 'borrador');
 
         $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")
-            ->assertStatus(409);
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'La hamaca ya tiene un borrador de receta.');
     }
 
     public function test_draft_replaces_details_and_rejects_duplicates_or_inactive_components(): void
@@ -79,20 +80,29 @@ class RecetaHamacaApiTest extends TestCase
         $admin = $this->user('admin');
         $hamaca = $this->hamaca();
         $material = $this->material();
+        $process = $this->process();
         Sanctum::actingAs($admin);
 
         $first = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$first}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 25]],
-            'mano_obra' => [],
+            'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 100, 'orden' => 1]],
         ])->assertOk();
         $this->postJson("/api/v1/recetas-hamaca/{$first}/activar")->assertOk();
+        $this->assertDatabaseHas('recetas_hamaca', [
+            'id' => $first,
+            'hamaca_id' => $hamaca->id,
+            'version' => 1,
+            'estado' => 'activa',
+        ]);
 
         $secondResponse = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")
             ->assertCreated();
         $second = $secondResponse->json('data.id');
         $this->assertSame(2, $secondResponse->json('data.version'));
-        $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $second, 'material_id' => $material->id]);
+        $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $second, 'material_id' => $material->id, 'cantidad' => 25]);
+        $this->assertDatabaseHas('receta_mano_obra', ['receta_hamaca_id' => $second, 'proceso_produccion_id' => $process->id, 'costo_unitario' => 100, 'orden' => 1]);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $second, 'hamaca_id' => $hamaca->id, 'version' => 2, 'estado' => 'borrador']);
 
         $this->postJson("/api/v1/recetas-hamaca/{$second}/activar")->assertOk();
         $this->assertDatabaseHas('recetas_hamaca', ['id' => $first, 'estado' => 'archivada']);

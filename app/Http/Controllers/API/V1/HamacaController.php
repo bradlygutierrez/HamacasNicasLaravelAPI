@@ -76,7 +76,6 @@ class HamacaController extends Controller
         $hamaca->load([
             'categoria',
             'tamano',
-            'colores',
             'fotos'
         ]);
 
