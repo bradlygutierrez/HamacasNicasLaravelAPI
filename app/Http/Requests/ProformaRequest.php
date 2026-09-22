@@ -22,7 +22,7 @@ class ProformaRequest extends FormRequest
             'aplica_ir' => 'nullable|boolean', 'tasa_ir' => 'nullable|numeric|between:0,100', 'tasa_comision_vendedor' => 'nullable|numeric|between:0,100',
             'detalles' => 'required|array|min:1',
             'detalles.*.hamaca_id' => 'required|integer|exists:hamacas,id',
-            'detalles.*.hamaca_variante_id' => 'nullable|integer|exists:hamaca_variantes,id',
+            'detalles.*.hamaca_variante_id' => 'required|integer|exists:hamaca_variantes,id',
             'detalles.*.cantidad' => 'required|integer|min:1', 'detalles.*.precio_unitario' => 'nullable|numeric|min:0', 'detalles.*.descuento' => 'nullable|numeric|min:0',
             'detalles.*.servicios' => 'nullable|array',
             'detalles.*.servicios.*.servicio_adicional_id' => 'required|integer|exists:servicios_adicionales,id',

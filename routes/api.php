@@ -131,9 +131,6 @@ Route::get('/v1/hamacas/{hamaca}', [HamacaController::class, 'show']);
 Route::post('/v1/hamacas', [HamacaController::class, 'store'])->middleware($admin);
 Route::put('/v1/hamacas/{hamaca}', [HamacaController::class, 'update'])->middleware($admin);
 Route::delete('/v1/hamacas/{hamaca}', [HamacaController::class, 'destroy'])->middleware($admin);
-Route::get('/v1/hamacas/{hamaca}/recetas', [RecetaHamacaController::class, 'index'])->middleware($recipeView);
-Route::get('/v1/hamacas/{hamaca}/recetas/activa', [RecetaHamacaController::class, 'active'])->middleware($recipeView);
-Route::post('/v1/hamacas/{hamaca}/recetas', [RecetaHamacaController::class, 'store'])->middleware($admin);
 Route::get('/v1/recetas-hamaca/{recetaHamaca}', [RecetaHamacaController::class, 'show'])->middleware($recipeView);
 Route::put('/v1/recetas-hamaca/{recetaHamaca}', [RecetaHamacaController::class, 'update'])->middleware($admin);
 Route::get('/v1/recetas-hamaca/{recetaHamaca}/costos', [RecetaHamacaController::class, 'costs'])->middleware($recipeView);
@@ -150,6 +147,9 @@ Route::get('/v1/fotos/{foto}/copy-source', [FotoController::class, 'copySource']
 //Hamaca Variante.
 Route::get('/v1/hamaca-variantes', [HamacaVarianteController::class, 'index'])->middleware($auth);
 Route::get('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'show'])->middleware($auth);
+Route::get('/v1/hamaca-variantes/{hamacaVariante}/recetas', [RecetaHamacaController::class, 'index'])->middleware($recipeView);
+Route::get('/v1/hamaca-variantes/{hamacaVariante}/recetas/activa', [RecetaHamacaController::class, 'active'])->middleware($recipeView);
+Route::post('/v1/hamaca-variantes/{hamacaVariante}/recetas', [RecetaHamacaController::class, 'store'])->middleware($admin);
 Route::post('/v1/hamaca-variantes', [HamacaVarianteController::class, 'store'])->middleware($inventoryManager);
 Route::put('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'update'])->middleware($inventoryManager);
 Route::delete('/v1/hamaca-variantes/{hamacaVariante}', [HamacaVarianteController::class, 'destroy'])->middleware($admin);

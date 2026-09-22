@@ -3,6 +3,7 @@
 namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
+use App\Models\HamacaVariante;
 use App\Models\Material;
 use App\Models\RecetaHamaca;
 use App\Models\RecetaMaterial;
@@ -57,6 +58,30 @@ class ProformaApiTest extends TestCase
         $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['hamaca_variante_id'] = $variant->id; $this->postJson('/api/v1/proformas', $payload)->assertStatus(422);
     }
 
+    public function test_each_variant_uses_its_own_active_recipe_and_missing_recipe_does_not_fallback(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamacaWithRecipe();
+        $first = $hamaca->variantes()->firstOrFail();
+        $second = HamacaVariante::create(['hamaca_id' => $hamaca->id, 'nombre' => 'Azul', 'composicion_clave' => 'azul-' . uniqid(), 'state' => true]);
+        $material = Material::create(['nombre' => 'Material variante ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 600, 'porcentaje_merma' => 0, 'state' => true]);
+        $recipe = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'hamaca_variante_id' => $second->id, 'version' => 1, 'estado' => 'activa', 'usuario_id' => $admin->id]);
+        RecetaMaterial::create(['receta_hamaca_id' => $recipe->id, 'material_id' => $material->id, 'cantidad' => 20]);
+        Sanctum::actingAs($admin);
+
+        $firstPayload = $this->payload($hamaca, $admin->id);
+        $secondPayload = $firstPayload;
+        $secondPayload['detalles'][0]['hamaca_variante_id'] = $second->id;
+        $firstId = $this->postJson('/api/v1/proformas', $firstPayload)->assertCreated()->json('data.id');
+        $secondId = $this->postJson('/api/v1/proformas', $secondPayload)->assertCreated()->json('data.id');
+        $this->assertNotSame(DB::table('proforma_detalles')->where('proforma_id', $firstId)->value('receta_hamaca_id'), DB::table('proforma_detalles')->where('proforma_id', $secondId)->value('receta_hamaca_id'));
+
+        $third = HamacaVariante::create(['hamaca_id' => $hamaca->id, 'nombre' => 'Sin fórmula', 'composicion_clave' => 'sin-formula-' . uniqid(), 'state' => true]);
+        $missingPayload = $firstPayload;
+        $missingPayload['detalles'][0]['hamaca_variante_id'] = $third->id;
+        $this->postJson('/api/v1/proformas', $missingPayload)->assertStatus(422)->assertJsonPath('message', 'La variante seleccionada no tiene una fórmula activa.');
+    }
+
     public function test_inactive_client_is_rejected_and_vendor_override_is_not_persisted(): void
     {
         $vendor = $this->user('vendedor'); $hamaca = $this->hamacaWithRecipe(); $client = \App\Models\Cliente::create(['nombre' => 'Inactivo', 'state' => false]); Sanctum::actingAs($vendor);
@@ -83,9 +108,9 @@ class ProformaApiTest extends TestCase
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin); $id = $this->postJson('/api/v1/proformas', $this->payload($hamaca, $admin->id))->json('data.id'); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'aceptada'])->assertStatus(409); $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk(); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'enviada'])->assertOk(); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'aceptada'])->assertOk();
     }
 
-    private function payload(Hamaca $hamaca, ?int $sellerId): array { return ['cliente_id' => null, 'nombre_cliente' => 'Cliente Proforma', 'vendedor_id' => $sellerId, 'detalles' => [['hamaca_id' => $hamaca->id, 'cantidad' => 1, 'precio_unitario' => 1000, 'descuento' => 0]], 'servicios_pedido' => []]; }
+    private function payload(Hamaca $hamaca, ?int $sellerId): array { $variant = $hamaca->variantes()->firstOrFail(); return ['cliente_id' => null, 'nombre_cliente' => 'Cliente Proforma', 'vendedor_id' => $sellerId, 'detalles' => [['hamaca_id' => $hamaca->id, 'hamaca_variante_id' => $variant->id, 'cantidad' => 1, 'precio_unitario' => 1000, 'descuento' => 0]], 'servicios_pedido' => []]; }
     private function user(string $role): Usuario { DB::table('usuarios')->updateOrInsert(['correo' => "proforma-{$role}@example.com"], ['nombre' => ucfirst($role), 'password' => Hash::make('secret123'), 'rol' => $role === 'vendedor2' ? 'vendedor' : $role, 'state' => true, 'created_at' => now(), 'updated_at' => now()]); return Usuario::where('correo', "proforma-{$role}@example.com")->firstOrFail(); }
-    private function hamacaWithRecipe(): Hamaca { $hamaca = Hamaca::create(['nombre' => 'Proforma ' . uniqid(), 'categoria_id' => DB::table('categorias')->value('id'), 'tamano_id' => DB::table('tamanos')->value('id'), 'precio' => 1000]); $material = Material::create(['nombre' => 'Material Proforma ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 600, 'porcentaje_merma' => 0, 'state' => true]); $recipe = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 1, 'estado' => 'activa', 'usuario_id' => $this->user('admin')->id]); RecetaMaterial::create(['receta_hamaca_id' => $recipe->id, 'material_id' => $material->id, 'cantidad' => 10]); return $hamaca; }
+    private function hamacaWithRecipe(): Hamaca { $hamaca = Hamaca::create(['nombre' => 'Proforma ' . uniqid(), 'categoria_id' => DB::table('categorias')->value('id'), 'tamano_id' => DB::table('tamanos')->value('id'), 'precio' => 1000]); $variant = HamacaVariante::create(['hamaca_id' => $hamaca->id, 'nombre' => 'Variante principal', 'composicion_clave' => 'proforma-' . uniqid(), 'state' => true]); $material = Material::create(['nombre' => 'Material Proforma ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 600, 'porcentaje_merma' => 0, 'state' => true]); $recipe = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'hamaca_variante_id' => $variant->id, 'version' => 1, 'estado' => 'activa', 'usuario_id' => $this->user('admin')->id]); RecetaMaterial::create(['receta_hamaca_id' => $recipe->id, 'material_id' => $material->id, 'cantidad' => 10]); return $hamaca; }
     public function test_existing_client_can_keep_custom_proforma_snapshot(): void
     {
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $client = \App\Models\Cliente::create(['nombre' => 'Empresa ABC', 'direccion' => 'Managua', 'state' => true]); Sanctum::actingAs($admin);
@@ -106,7 +131,7 @@ class ProformaApiTest extends TestCase
 
     public function test_emit_uses_recipe_version_active_at_emit_time(): void
     {
-        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin); $payload = $this->payload($hamaca, $admin->id); $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $v1 = $hamaca->recetaActiva()->firstOrFail(); $v1->update(['estado' => 'archivada']); $v2 = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 2, 'estado' => 'activa', 'usuario_id' => $admin->id]); RecetaMaterial::create(['receta_hamaca_id' => $v2->id, 'material_id' => Material::firstOrFail()->id, 'cantidad' => 20]);
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin); $payload = $this->payload($hamaca, $admin->id); $id = $this->postJson('/api/v1/proformas', $payload)->assertCreated()->json('data.id'); $variant = $hamaca->variantes()->firstOrFail(); $v1 = $variant->recetaActiva()->firstOrFail(); $v1->update(['estado' => 'archivada']); $v2 = RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'hamaca_variante_id' => $variant->id, 'version' => 2, 'estado' => 'activa', 'usuario_id' => $admin->id]); RecetaMaterial::create(['receta_hamaca_id' => $v2->id, 'material_id' => Material::firstOrFail()->id, 'cantidad' => 20]);
         $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk(); $this->assertDatabaseHas('proforma_detalles', ['proforma_id' => $id, 'receta_hamaca_id' => $v2->id, 'receta_version_snapshot' => 2]);
     }
 
