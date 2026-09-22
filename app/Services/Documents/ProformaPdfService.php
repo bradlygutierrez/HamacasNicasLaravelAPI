@@ -4,6 +4,7 @@ namespace App\Services\Documents;
 
 use App\Models\Proforma;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class ProformaPdfService
 {
@@ -27,10 +28,13 @@ class ProformaPdfService
             'services' => $detail->servicios->map(fn ($service) => $this->serviceLine($service))->all(),
         ])->all();
         $sheets = [];
-        foreach ($proforma->detalles->groupBy(fn ($detail) => $detail->hamaca_id . ':' . ($detail->hamaca_variante_id ?? '')) as $group) {
+        foreach ($proforma->detalles->groupBy(fn ($detail) => $detail->hamaca_id !== null
+            ? $detail->hamaca_id . ':' . ($detail->hamaca_variante_id ?? '')
+            : 'legacy-detail-' . $detail->id) as $group) {
             $detail = $group->first();
             $variantPhotos = $detail->variante?->fotos?->sortBy('id') ?? collect();
-            $photos = $variantPhotos->isNotEmpty() ? $variantPhotos : ($detail->hamaca?->fotos?->sortBy('id') ?? collect());
+            $resolvedPhotos = $this->images->resolveMany($variantPhotos);
+            if (!$resolvedPhotos) $resolvedPhotos = $this->images->resolveMany($detail->hamaca?->fotos?->sortBy('id') ?? collect());
             $sheets[] = [
                 'name' => $detail->hamaca_nombre_snapshot,
                 'variant' => $detail->variante?->nombre,
@@ -39,12 +43,17 @@ class ProformaPdfService
                 'size' => $detail->hamaca?->tamano?->nombre,
                 'quantity' => $group->sum('cantidad'),
                 'description' => $detail->hamaca_descripcion_snapshot,
-                'photos' => $this->images->resolveMany($photos),
+                'photos' => $resolvedPhotos,
             ];
         }
         $company = config('documentos.empresa');
         foreach (['logo', 'firma', 'sello'] as $key) $company[$key] = $this->images->resolve($company[$key] ?? null);
-        return compact('proforma', 'details', 'sheets', 'company') + ['isDraft' => $proforma->estado === 'borrador', 'currency' => config('documentos.moneda', 'C$'), 'paymentConditions' => config('documentos.proforma_condiciones_pago')];
+        return compact('proforma', 'details', 'sheets', 'company') + ['dateFormatted' => $this->formatDate($proforma->fecha), 'isDraft' => $proforma->estado === 'borrador', 'currency' => config('documentos.moneda', 'C$'), 'paymentConditions' => config('documentos.proforma_condiciones_pago')];
+    }
+
+    private function formatDate($date): ?string
+    {
+        return $date ? Carbon::parse($date)->format('d/m/Y') : null;
     }
 
     private function serviceLine($service): array

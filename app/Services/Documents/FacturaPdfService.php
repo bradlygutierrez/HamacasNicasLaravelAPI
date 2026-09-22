@@ -4,6 +4,7 @@ namespace App\Services\Documents;
 
 use App\Models\Factura;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class FacturaPdfService
 {
@@ -30,7 +31,7 @@ class FacturaPdfService
             'services' => $detail->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all(),
         ])->all();
         $services = $factura->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all();
-        return compact('factura', 'details', 'services', 'company') + ['currency' => config('documentos.moneda', 'C$')];
+        return compact('factura', 'details', 'services', 'company') + ['dateFormatted' => $factura->fecha ? Carbon::parse($factura->fecha)->format('d/m/Y') : null, 'currency' => config('documentos.moneda', 'C$')];
     }
 
     private function decodeColors($value): array

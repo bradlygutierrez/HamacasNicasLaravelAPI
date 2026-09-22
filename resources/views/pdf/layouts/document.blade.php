@@ -21,6 +21,11 @@
         .totals td { padding: 3px 0; }
         .total-row td { border-top: 2px solid #123852; color: #123852; font-size: 14px; font-weight: bold; padding-top: 8px; }
         .footer { margin-top: 28px; border-top: 1px solid #ccd4d9; padding-top: 8px; color: #63717a; font-size: 8px; }
+        .pdf-table thead { display: table-header-group; }
+        .pdf-table tr.item-row { page-break-inside: avoid; }
+        .sheet-header { border-top: 3px solid #123852; padding-top: 9px; margin-bottom: 24px; }
+        .sheet-photo-main { width: 100%; max-width: 390px; max-height: 390px; }
+        .sheet-photo-small { width: 170px; max-height: 145px; }
     </style>
 </head>
 <body>
