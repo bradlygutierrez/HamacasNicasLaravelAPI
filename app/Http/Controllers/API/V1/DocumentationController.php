@@ -583,12 +583,12 @@ HTML, 200, ['Content-Type' => 'text/html']);
                         ],
                     ],
                 ],
-                '/v1/hamacas/{hamaca}/recetas' => [
-                    'get' => ['tags' => ['Producción'], 'summary' => 'Versiones de receta de una hamaca', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['200' => ['description' => 'Recetas']]],
-                    'post' => ['tags' => ['Producción'], 'summary' => 'Crear borrador de receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['201' => ['description' => 'Borrador creado'], '409' => ['description' => 'Regla de negocio']]],
+                '/v1/hamaca-variantes/{hamacaVariante}/recetas' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Versiones de receta de una variante', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamacaVariante')], 'responses' => ['200' => ['description' => 'Recetas']]],
+                    'post' => ['tags' => ['Producción'], 'summary' => 'Crear borrador de receta para una variante', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamacaVariante')], 'requestBody' => ['content' => ['application/json' => ['schema' => ['type' => 'object', 'properties' => ['source_variant_id' => ['type' => 'integer']]]]]], 'responses' => ['201' => ['description' => 'Borrador creado'], '409' => ['description' => 'Regla de negocio'], '422' => ['description' => 'Variante origen inválida']]],
                 ],
-                '/v1/hamacas/{hamaca}/recetas/activa' => [
-                    'get' => ['tags' => ['Producción'], 'summary' => 'Receta activa de una hamaca', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamaca')], 'responses' => ['200' => ['description' => 'Receta activa']]],
+                '/v1/hamaca-variantes/{hamacaVariante}/recetas/activa' => [
+                    'get' => ['tags' => ['Producción'], 'summary' => 'Receta activa de una variante', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('hamacaVariante')], 'responses' => ['200' => ['description' => 'Receta activa']]],
                 ],
                 '/v1/recetas-hamaca/{recetaHamaca}' => [
                     'get' => ['tags' => ['Producción'], 'summary' => 'Ver receta', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('recetaHamaca')], 'responses' => ['200' => ['description' => 'Receta']]],

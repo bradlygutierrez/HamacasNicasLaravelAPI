@@ -126,7 +126,13 @@ class HamacaVarianteController extends Controller
 
         DB::transaction(function () use ($request, $validated, $hamacaVariante) {
             if (array_key_exists('hamaca_id', $validated)) {
-                $hamacaVariante->hamaca_id = $validated['hamaca_id'];
+                if ((int) $validated['hamaca_id'] !== (int) $hamacaVariante->hamaca_id) {
+                    throw new BusinessRuleException(
+                        'La variante no puede cambiar de modelo. Creá una nueva variante.',
+                        [],
+                        422
+                    );
+                }
             }
 
             if (array_key_exists('nombre', $validated)) {
@@ -148,6 +154,19 @@ class HamacaVarianteController extends Controller
 
                 if ($existing) {
                     abort(422, 'Ya existe una variante con esa composición de colores.');
+                }
+
+                if ($hamacaVariante->composicion_clave !== $composicionClave
+                    && $hamacaVariante->recetas()->exists()) {
+                    throw new BusinessRuleException(
+                        'La variante ya tiene fórmulas asociadas; creá una nueva variante para otra composición de colores.',
+                        [
+                            'color_ids' => [
+                                'La variante ya tiene fórmulas asociadas; creá una nueva variante para otra composición de colores.',
+                            ],
+                        ],
+                        422
+                    );
                 }
 
                 if ($hamacaVariante->composicion_clave !== $composicionClave

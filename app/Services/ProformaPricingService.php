@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\BusinessRuleException;
 use App\Models\Hamaca;
+use App\Models\HamacaVariante;
 use App\Models\Proforma;
 use App\Models\ServicioAdicional;
 use App\Models\Usuario;
@@ -18,10 +19,17 @@ class ProformaPricingService
         $grossProducts = '0.00'; $grossServices = '0.00'; $lineDiscounts = '0.00';
         $details = []; $services = []; $materials = []; $labor = [];
         foreach ($payload['detalles'] ?? [] as $detailIndex => $input) {
-            $hamaca = Hamaca::with(['recetaActiva.detallesMateriales.material', 'recetaActiva.detallesManoObra.proceso'])->findOrFail($input['hamaca_id']);
-            if (!empty($input['hamaca_variante_id']) && !$hamaca->variantes()->where('state', true)->find($input['hamaca_variante_id'])) throw new BusinessRuleException('La variante no pertenece al modelo o está inactiva.', [], 422);
-            $recipe = $hamaca->recetaActiva;
-            if (!$recipe) throw new BusinessRuleException("El modelo {$hamaca->nombre} no tiene una fórmula activa.", [], 422);
+            $hamaca = Hamaca::findOrFail($input['hamaca_id']);
+            $variantId = $input['hamaca_variante_id'] ?? null;
+            if (!$variantId) throw new BusinessRuleException('Esta proforma contiene productos sin variante. Seleccioná una variante antes de continuar.', [], 422);
+            $variante = HamacaVariante::with(['recetaActiva.detallesMateriales.material', 'recetaActiva.detallesManoObra.proceso'])
+                ->where('id', $variantId)
+                ->where('hamaca_id', $hamaca->id)
+                ->where('state', true)
+                ->first();
+            if (!$variante) throw new BusinessRuleException('La variante no pertenece al modelo o está inactiva.', [], 422);
+            $recipe = $variante->recetaActiva;
+            if (!$recipe) throw new BusinessRuleException('La variante seleccionada no tiene una fórmula activa.', [], 422);
             $quantity = (int) $input['cantidad']; $price = (string) ($input['precio_unitario'] ?? $hamaca->precio); $discount = (string) ($input['descuento'] ?? '0');
             $gross = DecimalMoney::mul((string) $quantity, $price); $this->assertDiscount($discount, $gross, 'El descuento de línea no puede superar el importe bruto.');
             $grossProducts = DecimalMoney::add($grossProducts, $gross); $lineDiscounts = DecimalMoney::add($lineDiscounts, $discount);
@@ -61,7 +69,11 @@ class ProformaPricingService
 
     public function calculateProforma(Proforma $proforma, Usuario $user): array
     {
-        $proforma->load(['detalles.servicios', 'servicios']); $payload = ['descuento_global' => $proforma->descuento_global ?? $proforma->descuento ?? '0', 'aplica_iva' => $proforma->aplica_iva, 'tasa_iva' => $proforma->tasa_iva, 'aplica_ir' => $proforma->aplica_ir, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'detalles' => [], 'servicios_pedido' => []];
+        $proforma->load(['detalles.servicios', 'servicios']);
+        if ($proforma->detalles->contains(fn ($detail) => $detail->hamaca_variante_id === null)) {
+            throw new BusinessRuleException('Esta proforma contiene productos sin variante. Seleccioná una variante antes de continuar.', [], 422);
+        }
+        $payload = ['descuento_global' => $proforma->descuento_global ?? $proforma->descuento ?? '0', 'aplica_iva' => $proforma->aplica_iva, 'tasa_iva' => $proforma->tasa_iva, 'aplica_ir' => $proforma->aplica_ir, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'detalles' => [], 'servicios_pedido' => []];
         foreach ($proforma->detalles as $detail) $payload['detalles'][] = ['hamaca_id' => $detail->hamaca_id, 'hamaca_variante_id' => $detail->hamaca_variante_id, 'cantidad' => $detail->cantidad, 'precio_unitario' => $detail->precio_unitario, 'descuento' => $detail->descuento, 'servicios' => $detail->servicios->map(fn ($s) => ['servicio_adicional_id' => $s->servicio_adicional_id, 'cantidad' => $s->cantidad, 'detalle' => $s->detalle, 'precio_unitario' => $s->precio_unitario, 'descuento' => $s->descuento, 'costo_base_unitario_override' => $s->costo_base_unitario_override])->all()];
         foreach ($proforma->servicios as $service) $payload['servicios_pedido'][] = ['servicio_adicional_id' => $service->servicio_adicional_id, 'cantidad' => $service->cantidad, 'detalle' => $service->detalle, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'costo_base_unitario_override' => $service->costo_base_unitario_override];
         return $this->calculatePayload($payload, $user, ['tasa_iva' => $proforma->tasa_iva, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'service_overrides' => $proforma->servicios->mapWithKeys(fn ($service) => [(string) $service->servicio_adicional_id => $service->costo_base_unitario_override])->all()]);

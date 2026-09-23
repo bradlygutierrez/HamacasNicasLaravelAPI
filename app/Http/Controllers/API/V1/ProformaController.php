@@ -8,7 +8,7 @@ use App\Http\Requests\ConvertPedidoRequest;
 use App\Http\Requests\ProformaRequest;
 use App\Http\Resources\V1\ProformaResource;
 use App\Models\Proforma;
-use App\Models\Hamaca;
+use App\Models\HamacaVariante;
 use App\Services\ProformaPricingService;
 use App\Services\ProformaService;
 use App\Services\PedidoService;
@@ -41,7 +41,7 @@ class ProformaController extends Controller
 
     public function show(Request $request, Proforma $proforma): ProformaResource
     {
-        $this->assertOwner($request, $proforma); return new ProformaResource($proforma->load(['cliente', 'vendedor', 'pedido', 'detalles.servicios', 'servicios', 'materialesSnapshot', 'manoObraSnapshot']));
+        $this->assertOwner($request, $proforma); return new ProformaResource($proforma->load(['cliente', 'vendedor', 'pedido', 'detalles.servicios', 'detalles.variante.colores', 'servicios', 'materialesSnapshot', 'manoObraSnapshot']));
     }
 
     public function pdf(Request $request, Proforma $proforma)
@@ -59,8 +59,15 @@ class ProformaController extends Controller
     public function products(Request $request)
     {
         $perPage = min(max($request->integer('per_page', 15), 1), 100);
-        $products = Hamaca::query()->with(['categoria', 'tamano'])->whereHas('recetaActiva')->when($request->filled('search'), fn ($q) => $q->where('nombre', 'like', '%' . $request->string('search') . '%'))->latest()->paginate($perPage);
-        return response()->json(['data' => $products->getCollection()->map(fn (Hamaca $hamaca) => ['id' => $hamaca->id, 'nombre' => $hamaca->nombre, 'categoria' => $hamaca->categoria?->nombre, 'tamano' => $hamaca->tamano?->nombre, 'precio' => $hamaca->precio, 'tiene_receta_activa' => true]), 'meta' => ['current_page' => $products->currentPage(), 'last_page' => $products->lastPage(), 'per_page' => $products->perPage(), 'total' => $products->total()]]);
+        $products = HamacaVariante::query()->where('state', true)->with(['hamaca.categoria', 'hamaca.tamano', 'colores'])->whereHas('recetaActiva')->when($request->filled('search'), function ($query) use ($request): void {
+            $search = '%' . $request->string('search') . '%';
+            $query->where(function ($query) use ($search): void {
+                $query->whereHas('hamaca', fn ($hamaca) => $hamaca->where('nombre', 'like', $search))
+                    ->orWhere('nombre', 'like', $search)
+                    ->orWhereHas('colores', fn ($color) => $color->where('nombre', 'like', $search));
+            });
+        })->latest()->paginate($perPage);
+        return response()->json(['data' => $products->getCollection()->map(fn (HamacaVariante $variant) => ['id' => $variant->id, 'hamaca_id' => $variant->hamaca_id, 'nombre' => $variant->hamaca?->nombre, 'variante' => $variant->nombre, 'colores' => $variant->colores->pluck('nombre')->values(), 'categoria' => $variant->hamaca?->categoria?->nombre, 'tamano' => $variant->hamaca?->tamano?->nombre, 'precio' => $variant->hamaca?->precio, 'tiene_receta_activa' => true]), 'meta' => ['current_page' => $products->currentPage(), 'last_page' => $products->lastPage(), 'per_page' => $products->perPage(), 'total' => $products->total()]]);
     }
     public function emit(Request $request, Proforma $proforma): ProformaResource { return new ProformaResource($this->service->emit($proforma, $request->user())); }
     public function status(ChangeProformaStatusRequest $request, Proforma $proforma): ProformaResource { return new ProformaResource($this->service->changeStatus($proforma, $request->validated('estado'), $request->user())); }

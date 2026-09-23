@@ -3,30 +3,53 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessRuleException;
-use App\Models\Hamaca;
+use App\Models\HamacaVariante;
 use App\Models\RecetaHamaca;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 
 class RecetaHamacaService
 {
-    public function crearBorrador(Hamaca $hamaca, Usuario $usuario): RecetaHamaca
+    public function crearBorrador(HamacaVariante $variante, Usuario $usuario, ?int $sourceVariantId = null): RecetaHamaca
     {
-        return DB::transaction(function () use ($hamaca, $usuario): RecetaHamaca {
-            $lockedHamaca = Hamaca::query()->lockForUpdate()->findOrFail($hamaca->id);
+        return DB::transaction(function () use ($variante, $usuario, $sourceVariantId): RecetaHamaca {
+            $lockedVariant = HamacaVariante::query()->lockForUpdate()->findOrFail($variante->id);
 
-            if (RecetaHamaca::where('hamaca_id', $lockedHamaca->id)->where('estado', 'borrador')->exists()) {
-                throw new BusinessRuleException('La hamaca ya tiene un borrador de receta.');
+            if (!$lockedVariant->state) {
+                throw new BusinessRuleException('La variante está inactiva y no puede recibir fórmulas.', [], 422);
+            }
+
+            if (RecetaHamaca::where('hamaca_variante_id', $lockedVariant->id)->where('estado', 'borrador')->exists()) {
+                throw new BusinessRuleException('La variante ya tiene un borrador de receta.');
+            }
+
+            if ($sourceVariantId !== null && RecetaHamaca::where('hamaca_variante_id', $lockedVariant->id)->where('estado', 'activa')->exists()) {
+                throw new BusinessRuleException('Una variante con fórmula activa debe crear la nueva versión desde su propia fórmula.', [], 422);
+            }
+
+            $source = $lockedVariant;
+            if ($sourceVariantId !== null) {
+                $source = HamacaVariante::query()
+                    ->where('hamaca_id', $lockedVariant->hamaca_id)
+                    ->where('state', true)
+                    ->find($sourceVariantId);
+                if (!$source) {
+                    throw new BusinessRuleException('La variante origen debe pertenecer al mismo modelo.', [], 422);
+                }
             }
 
             $active = RecetaHamaca::with(['detallesMateriales', 'detallesManoObra'])
-                ->where('hamaca_id', $lockedHamaca->id)
+                ->where('hamaca_variante_id', $source->id)
                 ->where('estado', 'activa')
                 ->first();
-            $version = ((int) RecetaHamaca::where('hamaca_id', $lockedHamaca->id)->lockForUpdate()->max('version')) + 1;
+            if ($sourceVariantId !== null && !$active) {
+                throw new BusinessRuleException('La variante origen no tiene una fórmula activa.', [], 422);
+            }
+            $version = ((int) RecetaHamaca::where('hamaca_variante_id', $lockedVariant->id)->lockForUpdate()->max('version')) + 1;
 
             $recipe = RecetaHamaca::create([
-                'hamaca_id' => $lockedHamaca->id,
+                'hamaca_id' => $lockedVariant->hamaca_id,
+                'hamaca_variante_id' => $lockedVariant->id,
                 'version' => $version,
                 'estado' => 'borrador',
                 'observaciones' => $active?->observaciones,
@@ -52,12 +75,19 @@ class RecetaHamacaService
 
     public function updateDraft(RecetaHamaca $recipe, array $data): RecetaHamaca
     {
+        if ($recipe->hamaca_variante_id === null) {
+            throw new BusinessRuleException('Las fórmulas históricas no pueden modificarse.', [], 422);
+        }
+
         if ($recipe->estado !== 'borrador') {
             throw new BusinessRuleException('Solo se puede modificar una receta en borrador.');
         }
 
         return DB::transaction(function () use ($recipe, $data): RecetaHamaca {
             $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
+            if ($recipe->hamaca_variante_id === null) {
+                throw new BusinessRuleException('Las fórmulas históricas no pueden modificarse.', [], 422);
+            }
             if ($recipe->estado !== 'borrador') {
                 throw new BusinessRuleException('Solo se puede modificar una receta en borrador.');
             }
@@ -78,7 +108,13 @@ class RecetaHamacaService
     {
         return DB::transaction(function () use ($recipe, $usuario): RecetaHamaca {
             $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
-            Hamaca::query()->lockForUpdate()->findOrFail($recipe->hamaca_id);
+            if ($recipe->hamaca_variante_id === null) {
+                throw new BusinessRuleException('Las fórmulas históricas no pueden modificarse.', [], 422);
+            }
+            $variant = HamacaVariante::query()->lockForUpdate()->findOrFail($recipe->hamaca_variante_id);
+            if (!$variant->state) {
+                throw new BusinessRuleException('La variante está inactiva y no puede recibir fórmulas.', [], 422);
+            }
             if ($recipe->estado !== 'borrador') {
                 throw new BusinessRuleException('Solo se puede activar una receta en borrador.');
             }
@@ -97,9 +133,10 @@ class RecetaHamacaService
                 throw new BusinessRuleException('La receta contiene procesos inactivos.');
             }
 
-            RecetaHamaca::where('hamaca_id', $recipe->hamaca_id)
+            $activeQuery = RecetaHamaca::where('hamaca_id', $recipe->hamaca_id)
                 ->where('estado', 'activa')
-                ->update(['estado' => 'archivada']);
+                ->when($recipe->hamaca_variante_id, fn ($query) => $query->where('hamaca_variante_id', $recipe->hamaca_variante_id), fn ($query) => $query->whereNull('hamaca_variante_id'));
+            $activeQuery->update(['estado' => 'archivada']);
 
             $recipe->update([
                 'estado' => 'activa',
@@ -115,6 +152,9 @@ class RecetaHamacaService
     {
         return DB::transaction(function () use ($recipe): RecetaHamaca {
             $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
+            if ($recipe->hamaca_variante_id === null) {
+                throw new BusinessRuleException('Las fórmulas históricas no pueden modificarse.', [], 422);
+            }
             if ($recipe->estado !== 'borrador') {
                 throw new BusinessRuleException('Solo se puede descartar una receta en borrador.');
             }
