@@ -6,6 +6,7 @@ use App\Models\Hamaca;
 use App\Models\HamacaVariante;
 use App\Models\Material;
 use App\Models\ProcesoProduccion;
+use App\Models\RecetaHamaca;
 use App\Models\ServicioAdicional;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -17,6 +18,59 @@ use Tests\TestCase;
 class RecetaHamacaApiTest extends TestCase
 {
     use DatabaseTransactions;
+
+    public function test_legacy_recipe_show_and_costs_remain_readable(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $recipe = RecetaHamaca::create([
+            'hamaca_id' => $hamaca->id,
+            'version' => 1,
+            'estado' => 'activa',
+            'usuario_id' => $admin->id,
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->getJson("/api/v1/recetas-hamaca/{$recipe->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $recipe->id);
+        $this->getJson("/api/v1/recetas-hamaca/{$recipe->id}/costos")
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['resumen']]);
+    }
+
+    public function test_legacy_recipe_cannot_be_updated(): void
+    {
+        $admin = $this->user('admin');
+        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe->id}", ['materiales' => [], 'mano_obra' => []])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
+    }
+
+    public function test_legacy_recipe_cannot_be_activated(): void
+    {
+        $admin = $this->user('admin');
+        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/activar")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
+    }
+
+    public function test_legacy_recipe_cannot_be_discarded(): void
+    {
+        $admin = $this->user('admin');
+        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/descartar")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
+    }
 
     public function test_first_recipe_is_version_one_draft_and_second_draft_is_rejected(): void
     {

@@ -18,6 +18,35 @@ class VariantRecipeApiTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_inactive_variant_cannot_receive_a_formula(): void
+    {
+        $admin = $this->user('admin');
+        $variant = $this->variant($this->hamaca(), 'Inactiva');
+        $variant->update(['state' => false]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'La variante está inactiva y no puede recibir fórmulas.');
+    }
+
+    public function test_inactive_variant_cannot_activate_an_existing_draft(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $variant = $this->variant($hamaca, 'Se desactiva');
+        $material = Material::create(['nombre' => 'Hilo inactivo ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 100, 'porcentaje_merma' => 0, 'state' => true]);
+        Sanctum::actingAs($admin);
+
+        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 1]], 'mano_obra' => []])->assertOk();
+        $variant->update(['state' => false]);
+
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'La variante está inactiva y no puede recibir fórmulas.');
+    }
+
     public function test_a_variant_can_create_and_list_its_independent_recipe(): void
     {
         $admin = $this->user('admin');
