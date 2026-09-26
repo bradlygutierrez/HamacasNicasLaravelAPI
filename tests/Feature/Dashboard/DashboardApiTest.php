@@ -20,7 +20,7 @@ class DashboardApiTest extends TestCase
         $before = $this->getJson('/api/v1/dashboard/summary')->assertOk()->json('data');
 
         $this->postJson('/api/v1/inventario/entradas', [
-            'hamaca_variante_id' => $seed['variante_id'],
+            'hamaca_id' => $seed['hamaca_id'],
             'usuario_id' => $seed['propietario_id'],
             'ubicacion_id' => $seed['ubicacion_origen_id'],
             'cantidad' => 2,

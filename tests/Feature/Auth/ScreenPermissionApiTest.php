@@ -18,25 +18,27 @@ class ScreenPermissionApiTest extends TestCase
         $admin = $this->seedUser('admin');
         Sanctum::actingAs($admin);
 
+        $screenSlug = 'ventas-pos-'.uniqid();
+        $permissionSlug = 'ver-'.uniqid();
         $pantallaId = $this->postJson('/api/v1/pantallas', [
             'nombre' => 'Ventas POS',
-            'slug' => 'ventas-pos',
+            'slug' => $screenSlug,
             'descripcion' => 'Pantalla para registrar ventas POS.',
             'ruta' => '/ventas',
             'icono' => 'shopping-cart',
             'orden' => 10,
         ])
             ->assertCreated()
-            ->assertJsonPath('data.slug', 'ventas-pos')
+            ->assertJsonPath('data.slug', $screenSlug)
             ->json('data.id');
 
         $permisoId = $this->postJson('/api/v1/permisos', [
             'nombre' => 'Ver',
-            'slug' => 'ver',
+            'slug' => $permissionSlug,
             'descripcion' => 'Permite ver una pantalla.',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.slug', 'ver')
+            ->assertJsonPath('data.slug', $permissionSlug)
             ->json('data.id');
 
         $this->postJson('/api/v1/pantalla-permiso-roles', [
@@ -46,8 +48,8 @@ class ScreenPermissionApiTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('data.rol', 'vendedor')
-            ->assertJsonPath('data.pantalla.slug', 'ventas-pos')
-            ->assertJsonPath('data.permiso.slug', 'ver');
+            ->assertJsonPath('data.pantalla.slug', $screenSlug)
+            ->assertJsonPath('data.permiso.slug', $permissionSlug);
 
         $this->assertDatabaseHas('pantalla_permiso_roles', [
             'pantalla_id' => $pantallaId,
@@ -62,15 +64,17 @@ class ScreenPermissionApiTest extends TestCase
         $vendedor = $this->seedUser('vendedor');
         Sanctum::actingAs($admin);
 
+        $screenSlug = 'facturas-'.uniqid();
+        $permissionSlug = 'ver-'.uniqid();
         $pantallaId = $this->postJson('/api/v1/pantallas', [
             'nombre' => 'Facturas',
-            'slug' => 'facturas',
+            'slug' => $screenSlug,
             'ruta' => '/facturas',
         ])->json('data.id');
 
         $permisoId = $this->postJson('/api/v1/permisos', [
             'nombre' => 'Ver',
-            'slug' => 'ver',
+            'slug' => $permissionSlug,
         ])->json('data.id');
 
         $this->postJson('/api/v1/pantalla-permiso-roles', [
@@ -81,11 +85,10 @@ class ScreenPermissionApiTest extends TestCase
 
         Sanctum::actingAs($vendedor);
 
-        $this->getJson('/api/v1/pantalla-permiso-roles/current')
-            ->assertOk()
-            ->assertJsonPath('data.0.rol', 'vendedor')
-            ->assertJsonPath('data.0.pantalla.slug', 'facturas')
-            ->assertJsonPath('data.0.permiso.slug', 'ver');
+        $response = $this->getJson('/api/v1/pantalla-permiso-roles/current')->assertOk();
+        $match = collect($response->json('data'))->first(fn ($row) => $row['pantalla']['slug'] === $screenSlug);
+        $this->assertSame('vendedor', $match['rol']);
+        $this->assertSame($permissionSlug, $match['permiso']['slug']);
     }
 
     private function seedUser(string $role): Usuario

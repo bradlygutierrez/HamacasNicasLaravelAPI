@@ -3,7 +3,6 @@
 namespace Tests\Feature\Production;
 
 use App\Models\Hamaca;
-use App\Models\HamacaVariante;
 use App\Models\Material;
 use App\Models\ProcesoProduccion;
 use App\Models\RecetaHamaca;
@@ -39,54 +38,21 @@ class RecetaHamacaApiTest extends TestCase
             ->assertJsonStructure(['data' => ['resumen']]);
     }
 
-    public function test_legacy_recipe_cannot_be_updated(): void
-    {
-        $admin = $this->user('admin');
-        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
-        Sanctum::actingAs($admin);
-
-        $this->putJson("/api/v1/recetas-hamaca/{$recipe->id}", ['materiales' => [], 'mano_obra' => []])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
-    }
-
-    public function test_legacy_recipe_cannot_be_activated(): void
-    {
-        $admin = $this->user('admin');
-        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
-        Sanctum::actingAs($admin);
-
-        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/activar")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
-    }
-
-    public function test_legacy_recipe_cannot_be_discarded(): void
-    {
-        $admin = $this->user('admin');
-        $recipe = RecetaHamaca::create(['hamaca_id' => $this->hamaca()->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id]);
-        Sanctum::actingAs($admin);
-
-        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/descartar")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Las fórmulas históricas no pueden modificarse.');
-    }
-
     public function test_first_recipe_is_version_one_draft_and_second_draft_is_rejected(): void
     {
         $admin = $this->user('admin');
         $hamaca = $this->hamaca();
-        $variant = $this->variant($hamaca);
+        $variant = $hamaca;
         Sanctum::actingAs($admin);
 
-        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
+        $this->postJson("/api/v1/hamacas/{$variant->id}/recetas")
             ->assertCreated()
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.estado', 'borrador');
 
-        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
-            ->assertStatus(409)
-            ->assertJsonPath('message', 'La variante ya tiene un borrador de receta.');
+        $this->postJson("/api/v1/hamacas/{$variant->id}/recetas")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'La hamaca ya tiene una fórmula en borrador.');
     }
 
     public function test_draft_replaces_details_and_rejects_duplicates_or_inactive_components(): void
@@ -98,7 +64,7 @@ class RecetaHamacaApiTest extends TestCase
         $process = $this->process();
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$variant->id}/recetas")->json('data.id');
 
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [
@@ -125,7 +91,7 @@ class RecetaHamacaApiTest extends TestCase
         $process->update(['state' => false]);
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [],
             'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 7]],
@@ -140,7 +106,7 @@ class RecetaHamacaApiTest extends TestCase
         $process = $this->process();
         Sanctum::actingAs($admin);
 
-        $first = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $first = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$first}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 25]],
             'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 100, 'orden' => 1]],
@@ -153,7 +119,7 @@ class RecetaHamacaApiTest extends TestCase
             'estado' => 'activa',
         ]);
 
-        $secondResponse = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")
+        $secondResponse = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")
             ->assertCreated();
         $second = $secondResponse->json('data.id');
         $this->assertSame(2, $secondResponse->json('data.version'));
@@ -173,7 +139,7 @@ class RecetaHamacaApiTest extends TestCase
         $material = $this->material();
         Sanctum::actingAs($admin);
 
-        $first = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $first = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$first}", [
             'observaciones' => 'Usar hilo reforzado.',
             'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
@@ -181,7 +147,7 @@ class RecetaHamacaApiTest extends TestCase
         ])->assertOk();
         $this->postJson("/api/v1/recetas-hamaca/{$first}/activar")->assertOk();
 
-        $second = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $second = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$second}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 2]],
             'mano_obra' => [],
@@ -197,10 +163,10 @@ class RecetaHamacaApiTest extends TestCase
         $variant = $this->variant($hamaca);
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->postJson("/api/v1/recetas-hamaca/{$recipe}/descartar")->assertOk();
-        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", ['materiales' => [], 'mano_obra' => []])->assertStatus(409);
-        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertStatus(409);
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", ['materiales' => [], 'mano_obra' => []])->assertUnprocessable();
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertUnprocessable();
     }
 
     public function test_discard_rechecks_state_after_recipe_is_no_longer_a_draft(): void
@@ -210,14 +176,14 @@ class RecetaHamacaApiTest extends TestCase
         $material = $this->material();
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
             'mano_obra' => [],
         ])->assertOk();
         $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")->assertOk();
 
-        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/descartar")->assertStatus(409);
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/descartar")->assertUnprocessable();
         $this->assertDatabaseHas('recetas_hamaca', ['id' => $recipe, 'estado' => 'activa']);
     }
 
@@ -230,7 +196,7 @@ class RecetaHamacaApiTest extends TestCase
 
         $this->getJson('/api/v1/formulas?search=' . urlencode($hamaca->nombre) . '&per_page=1')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $variant->id)
+            ->assertJsonPath('data.0.hamaca.id', $hamaca->id)
             ->assertJsonPath('data.0.hamaca.id', $hamaca->id)
             ->assertJsonPath('meta.per_page', 1)
             ->assertJsonPath('meta.current_page', 1);
@@ -244,7 +210,7 @@ class RecetaHamacaApiTest extends TestCase
         $process = $this->process();
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 25, 'porcentaje_merma' => null]],
             'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 100]],
@@ -264,7 +230,7 @@ class RecetaHamacaApiTest extends TestCase
         $process = $this->process();
         Sanctum::actingAs($admin);
 
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", [
             'materiales' => [['material_id' => $material->id, 'cantidad' => 1]],
             'mano_obra' => [['proceso_produccion_id' => $process->id, 'costo_unitario' => 7]],
@@ -306,10 +272,10 @@ class RecetaHamacaApiTest extends TestCase
         $partner = $this->user('socio');
         $hamaca = $this->hamaca();
         Sanctum::actingAs($admin);
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->json('data.id');
+        $recipe = $this->postJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->json('data.id');
 
         Sanctum::actingAs($partner);
-        $this->getJson("/api/v1/hamaca-variantes/{$this->variant($hamaca)->id}/recetas")->assertOk();
+        $this->getJson("/api/v1/hamacas/{$this->variant($hamaca)->id}/recetas")->assertOk();
         $this->putJson("/api/v1/recetas-hamaca/{$recipe}", ['materiales' => [], 'mano_obra' => []])->assertForbidden();
     }
 
@@ -341,12 +307,9 @@ class RecetaHamacaApiTest extends TestCase
         ]);
     }
 
-    private function variant(Hamaca $hamaca): HamacaVariante
+    private function variant(Hamaca $hamaca): Hamaca
     {
-        return HamacaVariante::firstOrCreate(
-            ['hamaca_id' => $hamaca->id, 'composicion_clave' => 'phase2-default'],
-            ['nombre' => 'Variante principal', 'state' => true]
-        );
+        return $hamaca;
     }
 
     private function material(): Material

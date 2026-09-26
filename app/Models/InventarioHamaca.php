@@ -13,10 +13,8 @@ class InventarioHamaca extends Model
 
     protected $fillable = [
         'hamaca_id',
-        'hamaca_variante_id',
         'usuario_id',
         'ubicacion_id',
-        'composicion_clave',
         'cantidad',
     ];
 
@@ -39,21 +37,6 @@ class InventarioHamaca extends Model
     public function usuario()
     {
         return $this->belongsTo(Usuario::class);
-    }
-
-    public function colores()
-    {
-        return $this->belongsToMany(
-            Color::class,
-            'inventario_hamaca_color',
-            'inventario_hamaca_id',
-            'color_id'
-        )->withTimestamps();
-    }
-
-    public function variante()
-    {
-        return $this->belongsTo(HamacaVariante::class, 'hamaca_variante_id');
     }
 
     public function movimientos()

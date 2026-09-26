@@ -23,7 +23,7 @@ class InventoryOperationsTest extends TestCase
         Sanctum::actingAs($operador);
 
         $this->postJson('/api/v1/inventario/entradas', [
-            'hamaca_variante_id' => $catalog['variante_id'],
+            'hamaca_id' => $catalog['hamaca_id'],
             'usuario_id' => $propietario->id,
             'ubicacion_id' => $catalog['ubicacion_origen_id'],
             'cantidad' => 5,
@@ -31,7 +31,7 @@ class InventoryOperationsTest extends TestCase
         ])->assertCreated();
 
         $inventarioId = DB::table('inventario_hamacas')
-            ->where('hamaca_variante_id', $catalog['variante_id'])
+            ->where('hamaca_id', $catalog['hamaca_id'])
             ->where('usuario_id', $propietario->id)
             ->where('ubicacion_id', $catalog['ubicacion_origen_id'])
             ->value('id');
@@ -113,7 +113,7 @@ class InventoryOperationsTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('inventario_hamacas', [
-            'hamaca_variante_id' => $seed['variante_id'],
+            'hamaca_id' => $seed['hamaca_id'],
             'usuario_id' => $seed['propietario_id'],
             'ubicacion_id' => $seed['ubicacion_destino_id'],
             'cantidad' => 3,
@@ -147,7 +147,7 @@ class InventoryOperationsTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('inventario_hamacas', [
-            'hamaca_variante_id' => $seed['variante_id'],
+            'hamaca_id' => $seed['hamaca_id'],
             'usuario_id' => $seed['propietario_id'],
             'ubicacion_id' => $seed['ubicacion_destino_id'],
             'cantidad' => 5,

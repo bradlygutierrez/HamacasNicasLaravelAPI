@@ -13,7 +13,6 @@ class RecetaHamaca extends Model
 
     protected $fillable = [
         'hamaca_id',
-        'hamaca_variante_id',
         'version',
         'estado',
         'observaciones',
@@ -30,11 +29,6 @@ class RecetaHamaca extends Model
     public function hamaca()
     {
         return $this->belongsTo(Hamaca::class);
-    }
-
-    public function hamacaVariante()
-    {
-        return $this->belongsTo(HamacaVariante::class, 'hamaca_variante_id');
     }
 
     public function detallesMateriales()

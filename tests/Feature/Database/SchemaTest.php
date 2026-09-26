@@ -20,7 +20,7 @@ class SchemaTest extends TestCase
             'fotos',
             'hamaca_foto',
             'inventario_hamacas',
-            'inventario_hamaca_color',
+            'hamaca_color',
             'clientes',
             'facturas',
             'detalle_facturas',
@@ -33,7 +33,7 @@ class SchemaTest extends TestCase
             $this->assertTrue(Schema::hasTable($table), "Missing table: {$table}");
         }
 
-        foreach (['users', 'usuario_hamaca', 'hamaca_color', 'hamaca_fotos'] as $table) {
+        foreach (['users', 'usuario_hamaca', 'hamaca_fotos', 'hamaca_variantes', 'hamaca_variante_color', 'hamaca_variante_foto', 'inventario_hamaca_color', 'hamaca_variant_promotion_map'] as $table) {
             $this->assertFalse(Schema::hasTable($table), "Legacy table still exists: {$table}");
         }
 
@@ -50,7 +50,6 @@ class SchemaTest extends TestCase
             'usuario_id',
             'ubicacion_id',
             'cantidad',
-            'composicion_clave',
         ]));
 
         $this->assertTrue(Schema::hasColumns('facturas', [
@@ -89,6 +88,20 @@ class SchemaTest extends TestCase
         ]));
     }
 
+    public function test_single_hamaca_product_schema_is_final(): void
+    {
+        $this->assertTrue(Schema::hasTable('hamaca_color'));
+        $this->assertFalse(Schema::hasColumn('recetas_hamaca', 'hamaca_variante_id'));
+        $this->assertFalse(Schema::hasColumn('inventario_hamacas', 'hamaca_variante_id'));
+        $this->assertFalse(Schema::hasColumn('inventario_hamacas', 'composicion_clave'));
+        $this->assertFalse(Schema::hasColumn('proforma_detalles', 'hamaca_variante_id'));
+        $this->assertFalse(Schema::hasColumn('pedido_detalles', 'hamaca_variante_id'));
+
+        $indexes = collect(Schema::getIndexes('hamaca_color'));
+        $this->assertTrue($indexes->contains(fn (array $index): bool => $index['primary']
+            && $index['columns'] === ['hamaca_id', 'color_id']));
+    }
+
     public function test_inventory_has_required_foreign_keys_and_group_uniqueness(): void
     {
         $foreignKeys = collect(Schema::getForeignKeys('inventario_hamacas'));
@@ -105,7 +118,6 @@ class SchemaTest extends TestCase
                 && in_array('hamaca_id', $index['columns'], true)
                 && in_array('usuario_id', $index['columns'], true)
                 && in_array('ubicacion_id', $index['columns'], true)
-                && in_array('composicion_clave', $index['columns'], true)
         ));
     }
 

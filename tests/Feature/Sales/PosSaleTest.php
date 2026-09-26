@@ -362,15 +362,14 @@ class PosSaleTest extends TestCase
             'hamaca_id' => $hamacaId,
             'usuario_id' => $socioId,
             'ubicacion_id' => $ubicacionId,
-            'composicion_clave' => hash('sha256', implode(',', collect($colorIds)->sort()->values()->all())),
             'cantidad' => 4,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         foreach ($colorIds as $colorId) {
-            DB::table('inventario_hamaca_color')->insert([
-                'inventario_hamaca_id' => $inventarioId,
+            DB::table('hamaca_color')->insert([
+                'hamaca_id' => $hamacaId,
                 'color_id' => $colorId,
                 'created_at' => now(),
                 'updated_at' => now(),

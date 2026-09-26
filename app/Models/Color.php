@@ -13,23 +13,13 @@ class Color extends Model
     protected $fillable = ['nombre'];
     protected $table = 'colores';
 
-    public function inventarios()
+    public function hamacas()
     {
         return $this->belongsToMany(
-            InventarioHamaca::class,
-            'inventario_hamaca_color',
+            Hamaca::class,
+            'hamaca_color',
             'color_id',
-            'inventario_hamaca_id'
-        )->withTimestamps();
-    }
-
-    public function variantes()
-    {
-        return $this->belongsToMany(
-            HamacaVariante::class,
-            'hamaca_variante_color',
-            'color_id',
-            'hamaca_variante_id'
+            'hamaca_id'
         )->withTimestamps();
     }
 }

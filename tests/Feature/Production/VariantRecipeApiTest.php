@@ -3,10 +3,9 @@
 namespace Tests\Feature\Production;
 
 use App\Models\Hamaca;
-use App\Models\HamacaVariante;
 use App\Models\Material;
-use App\Models\RecetaMaterial;
 use App\Models\RecetaHamaca;
+use App\Models\RecetaMaterial;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -18,150 +17,42 @@ class VariantRecipeApiTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_inactive_variant_cannot_receive_a_formula(): void
+    public function test_hamaca_owns_independent_formula_versions_and_clones_its_active_formula(): void
     {
-        $admin = $this->user('admin');
-        $variant = $this->variant($this->hamaca(), 'Inactiva');
-        $variant->update(['state' => false]);
-        Sanctum::actingAs($admin);
-
-        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'La variante está inactiva y no puede recibir fórmulas.');
+        $admin = $this->user(); $hamaca = $this->hamaca(); $material = $this->material(); Sanctum::actingAs($admin);
+        $v1 = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->assertCreated()->assertJsonPath('data.hamaca_id', $hamaca->id)->assertJsonPath('data.version', 1)->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$v1}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 2]], 'mano_obra' => []])->assertOk();
+        $this->postJson("/api/v1/recetas-hamaca/{$v1}/activar")->assertOk();
+        $v2 = $this->postJson("/api/v1/hamacas/{$hamaca->id}/recetas")->assertCreated()->assertJsonPath('data.version', 2)->json('data.id');
+        $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $v2, 'material_id' => $material->id, 'cantidad' => 2]);
+        $this->postJson("/api/v1/recetas-hamaca/{$v2}/activar")->assertOk();
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $v1, 'estado' => 'archivada']);
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $v2, 'estado' => 'activa']);
+        $this->getJson("/api/v1/hamacas/{$hamaca->id}/recetas/activa")->assertOk()->assertJsonPath('data.id', $v2);
     }
 
-    public function test_inactive_variant_cannot_activate_an_existing_draft(): void
+    public function test_first_formula_can_copy_only_from_same_category_and_size_hamaca(): void
     {
-        $admin = $this->user('admin');
-        $hamaca = $this->hamaca();
-        $variant = $this->variant($hamaca, 'Se desactiva');
-        $material = Material::create(['nombre' => 'Hilo inactivo ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 100, 'porcentaje_merma' => 0, 'state' => true]);
-        Sanctum::actingAs($admin);
-
-        $recipe = $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")->json('data.id');
-        $this->putJson("/api/v1/recetas-hamaca/{$recipe}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 1]], 'mano_obra' => []])->assertOk();
-        $variant->update(['state' => false]);
-
-        $this->postJson("/api/v1/recetas-hamaca/{$recipe}/activar")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'La variante está inactiva y no puede recibir fórmulas.');
+        $admin = $this->user(); $source = $this->hamaca(); $target = $this->hamaca($source->categoria_id, $source->tamano_id); $wrongCategory = DB::table('categorias')->insertGetId(['nombre' => 'Otra categoría '.uniqid(), 'created_at' => now(), 'updated_at' => now()]); $wrong = $this->hamaca($wrongCategory, $source->tamano_id); $material = $this->material(); Sanctum::actingAs($admin);
+        $sourceId = $this->postJson("/api/v1/hamacas/{$source->id}/recetas")->assertCreated()->json('data.id');
+        $this->putJson("/api/v1/recetas-hamaca/{$sourceId}", ['observaciones' => 'Nota copiada', 'materiales' => [['material_id' => $material->id, 'cantidad' => 3]], 'mano_obra' => []])->assertOk();
+        $this->postJson("/api/v1/recetas-hamaca/{$sourceId}/activar")->assertOk();
+        $copyId = $this->postJson("/api/v1/hamacas/{$target->id}/recetas", ['source_hamaca_id' => $source->id])->assertCreated()->json('data.id');
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $copyId, 'observaciones' => 'Nota copiada']);
+        $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $copyId, 'material_id' => $material->id, 'cantidad' => 3]);
+        $this->postJson("/api/v1/hamacas/{$wrong->id}/recetas", ['source_hamaca_id' => $source->id])->assertUnprocessable();
+        $this->postJson("/api/v1/hamacas/{$target->id}/recetas", ['source_hamaca_id' => $source->id])->assertUnprocessable();
     }
 
-    public function test_a_variant_can_create_and_list_its_independent_recipe(): void
+    public function test_formula_summary_has_one_row_per_hamaca_and_searches_its_colors(): void
     {
-        $admin = $this->user('admin');
-        $hamaca = $this->hamaca();
-        $variant = HamacaVariante::create([
-            'hamaca_id' => $hamaca->id,
-            'nombre' => 'Blanco',
-            'composicion_clave' => 'variant-' . uniqid(),
-            'state' => true,
-        ]);
-        Sanctum::actingAs($admin);
-
-        $this->postJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
-            ->assertCreated()
-            ->assertJsonPath('data.hamaca_variante_id', $variant->id)
-            ->assertJsonPath('data.version', 1);
-
-        $this->getJson("/api/v1/hamaca-variantes/{$variant->id}/recetas")
-            ->assertOk()
-            ->assertJsonPath('data.0.hamaca_variante_id', $variant->id);
-    }
-
-    public function test_variants_have_independent_versions_and_activation(): void
-    {
-        $admin = $this->user('admin');
-        $hamaca = $this->hamaca();
-        $white = $this->variant($hamaca, 'Blanco');
-        $blue = $this->variant($hamaca, 'Azul');
-        $material = Material::create(['nombre' => 'Hilo ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 100, 'porcentaje_merma' => 0, 'state' => true]);
-        Sanctum::actingAs($admin);
-
-        $whiteDraft = $this->postJson("/api/v1/hamaca-variantes/{$white->id}/recetas")->assertCreated()->json('data.id');
-        $this->putJson("/api/v1/recetas-hamaca/{$whiteDraft}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 2]], 'mano_obra' => []])->assertOk();
-        $this->postJson("/api/v1/recetas-hamaca/{$whiteDraft}/activar")->assertOk();
-        $secondWhiteDraft = $this->postJson("/api/v1/hamaca-variantes/{$white->id}/recetas")->assertCreated()->assertJsonPath('data.version', 2)->json('data.id');
-        $this->postJson("/api/v1/hamaca-variantes/{$blue->id}/recetas")->assertCreated()->assertJsonPath('data.version', 1);
-
-        $this->assertDatabaseHas('recetas_hamaca', ['id' => $whiteDraft, 'hamaca_variante_id' => $white->id, 'estado' => 'activa']);
-        $this->assertDatabaseHas('recetas_hamaca', ['id' => $secondWhiteDraft, 'hamaca_variante_id' => $white->id, 'estado' => 'borrador']);
-        $this->assertDatabaseHas('recetas_hamaca', ['hamaca_variante_id' => $blue->id, 'version' => 1, 'estado' => 'borrador']);
-
-        $this->postJson("/api/v1/recetas-hamaca/{$secondWhiteDraft}/activar")->assertOk();
-        $this->assertDatabaseHas('recetas_hamaca', ['id' => $whiteDraft, 'estado' => 'archivada']);
-        $this->assertDatabaseHas('recetas_hamaca', ['id' => $secondWhiteDraft, 'estado' => 'activa']);
-    }
-
-    public function test_new_variant_can_copy_only_an_active_formula_from_same_model(): void
-    {
-        $admin = $this->user('admin');
-        $hamaca = $this->hamaca();
-        $source = $this->variant($hamaca, 'Origen');
-        $target = $this->variant($hamaca, 'Destino');
-        $otherModel = $this->hamaca();
-        $foreign = $this->variant($otherModel, 'Extranjera');
-        Sanctum::actingAs($admin);
-
-        $sourceDraft = $this->postJson("/api/v1/hamaca-variantes/{$source->id}/recetas")->json('data.id');
-        $this->putJson("/api/v1/recetas-hamaca/{$sourceDraft}", ['materiales' => [], 'mano_obra' => []]);
-        // An empty recipe cannot activate; create a valid material row through the API path.
-        $material = Material::create(['nombre' => 'Hilo copia ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 100, 'porcentaje_merma' => 0, 'state' => true]);
-        $this->putJson("/api/v1/recetas-hamaca/{$sourceDraft}", ['materiales' => [['material_id' => $material->id, 'cantidad' => 1]], 'mano_obra' => []])->assertOk();
-        $this->postJson("/api/v1/recetas-hamaca/{$sourceDraft}/activar")->assertOk();
-
-        $copy = $this->postJson("/api/v1/hamaca-variantes/{$target->id}/recetas", ['source_variant_id' => $source->id])->assertCreated();
-        $this->assertDatabaseHas('receta_materiales', ['receta_hamaca_id' => $copy->json('data.id'), 'material_id' => $material->id]);
-        $this->postJson("/api/v1/hamaca-variantes/{$foreign->id}/recetas", ['source_variant_id' => $source->id])->assertStatus(422);
-
-        $this->postJson("/api/v1/recetas-hamaca/{$copy->json('data.id')}/activar")->assertOk();
-        // source_variant_id must not override an active formula on the destination variant.
-        $before = RecetaHamaca::where('hamaca_variante_id', $target->id)->count();
-        $this->postJson("/api/v1/hamaca-variantes/{$target->id}/recetas", ['source_variant_id' => $source->id])->assertStatus(422);
-        $this->assertSame($before, RecetaHamaca::where('hamaca_variante_id', $target->id)->count());
-    }
-
-    public function test_formula_summary_lists_variants_and_excludes_legacy_recipes_as_rows(): void
-    {
-        $admin = $this->user('admin');
-        $hamaca = $this->hamaca();
-        $variant = $this->variant($hamaca, 'Visible');
-        RecetaHamaca::create(['hamaca_id' => $hamaca->id, 'version' => 99, 'estado' => 'activa', 'usuario_id' => $admin->id]);
-        Sanctum::actingAs($admin);
-
-        $response = $this->getJson('/api/v1/formulas?search=' . urlencode($hamaca->nombre));
-        $response->assertOk()->assertJsonPath('data.0.id', $variant->id)->assertJsonPath('data.0.variante.nombre', 'Visible');
+        $admin = $this->user(); $hamaca = $this->hamaca(); $colorId = DB::table('colores')->insertGetId(['nombre' => 'Único ' . uniqid(), 'created_at' => now(), 'updated_at' => now()]); $hamaca->colores()->attach($colorId); Sanctum::actingAs($admin);
+        $response = $this->getJson('/api/v1/formulas?search=' . urlencode('Único'))->assertOk();
         $this->assertCount(1, $response->json('data'));
-
-        $this->getJson('/api/v1/formulas?search=Visible')
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $variant->id);
+        $response->assertJsonPath('data.0.hamaca.id', $hamaca->id)->assertJsonPath('data.0.hamaca.colores.0.id', $colorId);
     }
 
-    private function variant(Hamaca $hamaca, string $name): HamacaVariante
-    {
-        return HamacaVariante::create(['hamaca_id' => $hamaca->id, 'nombre' => $name, 'composicion_clave' => strtolower($name) . '-' . uniqid(), 'state' => true]);
-    }
-
-    private function user(string $role): Usuario
-    {
-        return Usuario::create([
-            'nombre' => ucfirst($role) . uniqid(),
-            'correo' => $role . uniqid() . '@example.com',
-            'password' => Hash::make('secret123'),
-            'rol' => $role,
-            'state' => true,
-        ]);
-    }
-
-    private function hamaca(): Hamaca
-    {
-        return Hamaca::create([
-            'nombre' => 'Variante recipe ' . uniqid(),
-            'descripcion' => 'Modelo de prueba',
-            'categoria_id' => DB::table('categorias')->value('id'),
-            'tamano_id' => DB::table('tamanos')->value('id'),
-            'precio' => 1800,
-        ]);
-    }
+    private function user(): Usuario { return Usuario::create(['nombre' => 'Admin ' . uniqid(), 'correo' => uniqid() . '@example.com', 'password' => Hash::make('secret123'), 'rol' => 'admin', 'state' => true]); }
+    private function hamaca(?int $categoriaId = null, ?int $tamanoId = null): Hamaca { return Hamaca::create(['nombre' => 'Producto ' . uniqid(), 'categoria_id' => $categoriaId ?? DB::table('categorias')->value('id'), 'tamano_id' => $tamanoId ?? DB::table('tamanos')->value('id'), 'precio' => 1800]); }
+    private function material(): Material { return Material::create(['nombre' => 'Material ' . uniqid(), 'unidad_consumo' => 'metro', 'unidad_compra' => 'rollo', 'contenido_por_compra' => 100, 'precio_actual' => 100, 'porcentaje_merma' => 0, 'state' => true]); }
 }

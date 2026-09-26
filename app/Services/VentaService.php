@@ -58,7 +58,7 @@ class VentaService
                     'ubicacion_id' => $inventario->ubicacion_id,
                     'hamaca_nombre' => $inventario->hamaca->nombre,
                     'hamaca_descripcion' => $inventario->hamaca->descripcion,
-                    'colores_snapshot' => json_encode($inventario->colores->pluck('nombre')->values()->all()),
+                    'colores_snapshot' => json_encode($inventario->hamaca->colores->pluck('nombre')->values()->all()),
                     'cantidad' => $linea['cantidad'],
                     'precio_unitario' => $linea['precio_unitario'],
                     'subtotal' => $linea['subtotal'],
@@ -86,7 +86,7 @@ class VentaService
             'inventario_hamaca_id' => (int) $item['inventario_hamaca_id'],
             'cantidad' => (int) $item['cantidad'],
         ]);
-        $inventarios = InventarioHamaca::with(['hamaca', 'colores', 'usuario', 'ubicacion'])
+        $inventarios = InventarioHamaca::with(['hamaca.colores', 'usuario', 'ubicacion'])
             ->whereIn('id', $items->pluck('inventario_hamaca_id')->all())
             ->lockForUpdate()->get()->keyBy('id');
         $subtotal = '0.00';

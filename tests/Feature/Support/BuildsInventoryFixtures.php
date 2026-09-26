@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Support;
 
-use App\Models\HamacaVariante;
+use App\Models\Hamaca;
 use App\Models\InventarioHamaca;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
@@ -74,15 +74,7 @@ trait BuildsInventoryFixtures
         }
 
         sort($colorIds);
-        $compositionKey = hash('sha256', implode(',', $colorIds));
-
-        $variante = HamacaVariante::create([
-            'hamaca_id' => $hamacaId,
-            'nombre' => 'Variante prueba',
-            'composicion_clave' => $compositionKey,
-            'state' => true,
-        ]);
-        $variante->colores()->sync($colorIds);
+        Hamaca::findOrFail($hamacaId)->colores()->sync($colorIds);
 
         return [
             'categoria_id' => $categoriaId,
@@ -91,8 +83,6 @@ trait BuildsInventoryFixtures
             'ubicacion_origen_id' => $ubicacionOrigenId,
             'ubicacion_destino_id' => $ubicacionDestinoId,
             'color_ids' => $colorIds,
-            'composition_key' => $compositionKey,
-            'variante_id' => $variante->id,
         ];
     }
 
@@ -107,14 +97,10 @@ trait BuildsInventoryFixtures
 
         $inventario = InventarioHamaca::create([
             'hamaca_id' => $catalog['hamaca_id'],
-            'hamaca_variante_id' => $catalog['variante_id'],
             'usuario_id' => $propietario->id,
             'ubicacion_id' => $ubicacionId ?? $catalog['ubicacion_origen_id'],
-            'composicion_clave' => $catalog['composition_key'],
             'cantidad' => $cantidad,
         ]);
-
-        $inventario->colores()->sync($catalog['color_ids']);
 
         return [
             ...$catalog,

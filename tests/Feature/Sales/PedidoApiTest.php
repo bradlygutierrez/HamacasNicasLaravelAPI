@@ -3,7 +3,6 @@
 namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
-use App\Models\HamacaVariante;
 use App\Models\Color;
 use App\Models\Material;
 use App\Models\Pedido;
@@ -292,16 +291,14 @@ class PedidoApiTest extends TestCase
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
-        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Azul', 'composicion_clave' => 'phase5-' . uniqid(), 'state' => true]);
-        $detail->update(['hamaca_variante_id' => $variant->id]);
         $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega fase 5 ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
         $this->finishOrder($pedidoId);
         $pedidoDetailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
-        $payload = ['canal' => 'pos', 'metodo_pago' => 'efectivo', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId, 'hamaca_variante_id' => $variant->id]]];
+        $payload = ['canal' => 'pos', 'metodo_pago' => 'efectivo', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId]]];
         $first = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertCreated()->json('data');
-        $stock = DB::table('inventario_hamacas')->where('hamaca_variante_id', $variant->id)->where('ubicacion_id', $locationId)->first();
+        $stock = DB::table('inventario_hamacas')->where('hamaca_id', $detail->hamaca_id)->where('ubicacion_id', $locationId)->first();
         $this->assertSame(0, (int) $stock->cantidad);
         $this->assertDatabaseHas('movimientos', ['pedido_id' => $pedidoId, 'factura_id' => null, 'tipo' => 'entrada', 'cantidad' => 2]);
         $this->assertDatabaseHas('movimientos', ['pedido_id' => $pedidoId, 'factura_id' => $first['id'], 'tipo' => 'salida', 'cantidad' => 2]);
@@ -312,7 +309,7 @@ class PedidoApiTest extends TestCase
         $this->assertNotNull(DB::table('pedidos')->where('id', $pedidoId)->value('facturado_at'));
     }
 
-    public function test_order_billing_rejects_unfinished_orders_and_invalid_variants(): void
+    public function test_order_billing_rejects_unfinished_orders_and_bills_hamaca_detail(): void
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
@@ -323,7 +320,7 @@ class PedidoApiTest extends TestCase
         $payload = ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId]]];
         $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(409);
         $this->finishOrder($pedidoId);
-        $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertStatus(422);
+        $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertCreated();
     }
 
     public function test_billing_copies_detail_ids_colors_and_services_and_factura_index_serializes_them(): void
@@ -331,9 +328,7 @@ class PedidoApiTest extends TestCase
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $proformaDetail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
         $color = Color::create(['nombre' => 'Azul snapshot ' . uniqid(), 'codigo_hex' => '#123456', 'state' => true]);
-        $variant = HamacaVariante::create(['hamaca_id' => $proformaDetail->hamaca_id, 'nombre' => 'Azul física', 'composicion_clave' => 'billing-' . uniqid(), 'state' => true]);
-        $variant->colores()->attach($color->id);
-        $proformaDetail->update(['hamaca_variante_id' => $variant->id]);
+        $proformaDetail->hamaca->colores()->attach($color->id);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
         $pedidoDetail = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->first();
@@ -346,7 +341,7 @@ class PedidoApiTest extends TestCase
         $this->assertDatabaseHas('detalle_facturas', ['id' => $invoiceDetailId, 'pedido_detalle_id' => $pedidoDetail->id, 'colores_snapshot' => json_encode([$color->nombre])]);
         $this->assertDatabaseHas('detalle_factura_servicios', ['pedido_detalle_servicio_id' => $detailService->id, 'detalle_factura_id' => $invoiceDetailId]);
         $this->assertDatabaseHas('factura_servicios', ['pedido_servicio_id' => $pedidoService->id, 'factura_id' => $invoice['id']]);
-        $this->getJson('/api/v1/pedidos/' . $pedidoId)->assertOk()->assertJsonPath('data.detalles.0.hamaca_id', $proformaDetail->hamaca_id)->assertJsonPath('data.detalles.0.hamaca_variante_id', $variant->id);
+        $this->getJson('/api/v1/pedidos/' . $pedidoId)->assertOk()->assertJsonPath('data.detalles.0.hamaca_id', $proformaDetail->hamaca_id)->assertJsonMissingPath('data.detalles.0.hamaca_variante_id');
         $this->getJson('/api/v1/facturas')->assertOk()->assertJsonPath('data.0.pedido_numero', $invoice['pedido_numero'])->assertJsonPath('data.0.origen', 'pedido')->assertJsonStructure(['data' => [['detalles', 'servicios']]]);
         $detailInvoiceId = $invoiceDetailId;
         Sanctum::actingAs($vendor);
@@ -363,15 +358,13 @@ class PedidoApiTest extends TestCase
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
-        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Stock existente', 'composicion_clave' => 'existing-' . uniqid(), 'state' => true]);
-        $detail->update(['hamaca_variante_id' => $variant->id]);
         $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega stock ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('inventario_hamacas')->insert(['hamaca_id' => $variant->hamaca_id, 'hamaca_variante_id' => $variant->id, 'usuario_id' => $admin->id, 'ubicacion_id' => $locationId, 'composicion_clave' => $variant->composicion_clave, 'cantidad' => 5, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('inventario_hamacas')->insert(['hamaca_id' => $detail->hamaca_id, 'usuario_id' => $admin->id, 'ubicacion_id' => $locationId, 'cantidad' => 5, 'created_at' => now(), 'updated_at' => now()]);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
         $this->finishOrder($pedidoId);
         $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id')]]])->assertCreated();
-        $inventory = DB::table('inventario_hamacas')->where('hamaca_variante_id', $variant->id)->where('usuario_id', $admin->id)->where('ubicacion_id', $locationId)->first();
+        $inventory = DB::table('inventario_hamacas')->where('hamaca_id', $detail->hamaca_id)->where('usuario_id', $admin->id)->where('ubicacion_id', $locationId)->first();
         $this->assertSame(5, (int) $inventory->cantidad);
         $this->assertSame(1, DB::table('movimientos')->where('pedido_id', $pedidoId)->where('tipo', 'entrada')->count());
         $this->assertSame(1, DB::table('movimientos')->where('pedido_id', $pedidoId)->where('tipo', 'salida')->count());
@@ -381,8 +374,6 @@ class PedidoApiTest extends TestCase
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
-        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Rollback', 'composicion_clave' => 'rollback-' . uniqid(), 'state' => true]);
-        $detail->update(['hamaca_variante_id' => $variant->id]);
         $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega rollback ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
@@ -399,7 +390,7 @@ class PedidoApiTest extends TestCase
         $this->assertNull(DB::table('pedidos')->where('id', $pedidoId)->value('facturado_at'));
     }
 
-    public function test_billing_roles_and_variant_replacement_rules(): void
+    public function test_billing_roles_and_product_identity_from_order_detail(): void
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $other = $this->user('vendedor2'); $socio = $this->user('socio'); $warehouse = $this->user('almacenista');
         $own = $this->billableOrder($admin, $vendor);
@@ -414,12 +405,10 @@ class PedidoApiTest extends TestCase
         Sanctum::actingAs($warehouse);
         $this->postJson("/api/v1/pedidos/{$foreign['pedido_id']}/facturar", $this->billingPayload($foreign))->assertForbidden();
 
-        $fixed = $this->billableOrder($admin, $vendor, true);
-        $otherHamaca = Hamaca::create(['nombre' => 'Otra hamaca ' . uniqid(), 'categoria_id' => DB::table('categorias')->value('id'), 'tamano_id' => DB::table('tamanos')->value('id'), 'precio' => 900]);
-        $wrongVariant = HamacaVariante::create(['hamaca_id' => $otherHamaca->id, 'nombre' => 'Incorrecta', 'composicion_clave' => 'wrong-' . uniqid(), 'state' => true]);
+        $fixed = $this->billableOrder($admin, $vendor);
         Sanctum::actingAs($admin);
-        $this->postJson("/api/v1/pedidos/{$fixed['pedido_id']}/facturar", ['canal' => 'pos', 'ubicacion_id' => $fixed['location_id'], 'lineas' => [['pedido_detalle_id' => $fixed['detail_id'], 'hamaca_variante_id' => $wrongVariant->id]]])->assertCreated();
-        $this->assertDatabaseHas('inventario_hamacas', ['hamaca_variante_id' => $fixed['variant_id'], 'ubicacion_id' => $fixed['location_id'], 'cantidad' => 0]);
+        $this->postJson("/api/v1/pedidos/{$fixed['pedido_id']}/facturar", $this->billingPayload($fixed))->assertCreated();
+        $this->assertDatabaseHas('inventario_hamacas', ['hamaca_id' => $fixed['hamaca_id'], 'ubicacion_id' => $fixed['location_id'], 'cantidad' => 0]);
     }
 
     public function test_billing_uses_exact_pedido_financial_and_detail_snapshots(): void
@@ -447,23 +436,21 @@ class PedidoApiTest extends TestCase
         $this->assertSame('150.00', (string) $invoice['servicios'][0]['precio_unitario']);
     }
 
-    private function billableOrder(Usuario $admin, Usuario $vendor, bool $fixed = false): array
+    private function billableOrder(Usuario $admin, Usuario $vendor): array
     {
         $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
-        $variant = HamacaVariante::create(['hamaca_id' => $detail->hamaca_id, 'nombre' => 'Variante facturable', 'composicion_clave' => 'role-' . uniqid(), 'state' => true]);
-        if ($fixed) $detail->update(['hamaca_variante_id' => $variant->id]);
         $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Ubicación role ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
         $detailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
         $this->finishOrder($pedidoId);
-        return ['pedido_id' => $pedidoId, 'detail_id' => $detailId, 'variant_id' => $variant->id, 'location_id' => $locationId, 'hamaca_id' => $detail->hamaca_id];
+        return ['pedido_id' => $pedidoId, 'detail_id' => $detailId, 'location_id' => $locationId, 'hamaca_id' => $detail->hamaca_id];
     }
 
     private function billingPayload(array $order): array
     {
-        return ['canal' => 'pos', 'ubicacion_id' => $order['location_id'], 'lineas' => [['pedido_detalle_id' => $order['detail_id'], 'hamaca_variante_id' => $order['variant_id']]]];
+        return ['canal' => 'pos', 'ubicacion_id' => $order['location_id'], 'lineas' => [['pedido_detalle_id' => $order['detail_id']]]];
     }
 
     private function finishOrder(int $pedidoId): void

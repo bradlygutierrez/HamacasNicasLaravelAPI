@@ -16,7 +16,6 @@ class FacturarPedidoRequest extends FormRequest
             'usuario_inventario_id' => ['nullable', 'integer', 'exists:usuarios,id'],
             'lineas' => ['required', 'array', 'min:1'],
             'lineas.*.pedido_detalle_id' => ['required', 'integer', 'distinct', 'exists:pedido_detalles,id'],
-            'lineas.*.hamaca_variante_id' => ['nullable', 'integer', 'exists:hamaca_variantes,id'],
         ];
     }
 }
