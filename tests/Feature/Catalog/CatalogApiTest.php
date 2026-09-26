@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -123,6 +124,38 @@ class CatalogApiTest extends TestCase
         $this->deleteJson("/api/v1/fotos/{$local->id}")->assertOk();
         $this->deleteJson("/api/v1/fotos/{$external->id}")->assertOk();
         Storage::disk('public')->assertMissing('fotos/to-delete.png');
+    }
+
+    public function test_replacing_local_photo_file_deletes_old_file_and_stores_new_file(): void
+    {
+        $admin = $this->seedAdmin();
+        Sanctum::actingAs($admin);
+        Storage::fake('public');
+        Storage::disk('public')->put('fotos/old-photo.png', 'old image bytes');
+        $photo = Foto::create(['ruta' => 'fotos/old-photo.png']);
+
+        $this->put("/api/v1/fotos/{$photo->id}", [
+            'foto' => UploadedFile::fake()->create('replacement.png', 10, 'image/png'),
+        ])->assertOk();
+
+        Storage::disk('public')->assertMissing('fotos/old-photo.png');
+        Storage::disk('public')->assertExists($photo->fresh()->ruta);
+    }
+
+    public function test_changing_photo_to_external_url_deletes_old_local_file(): void
+    {
+        $admin = $this->seedAdmin();
+        Sanctum::actingAs($admin);
+        Storage::fake('public');
+        Storage::disk('public')->put('fotos/old-route-photo.png', 'old image bytes');
+        $photo = Foto::create(['ruta' => 'fotos/old-route-photo.png']);
+
+        $this->putJson("/api/v1/fotos/{$photo->id}", [
+            'ruta' => 'https://example.com/new-photo.png',
+        ])->assertOk()->assertJsonPath('data.ruta', 'https://example.com/new-photo.png');
+
+        Storage::disk('public')->assertMissing('fotos/old-route-photo.png');
+        $this->assertSame('https://example.com/new-photo.png', $photo->fresh()->ruta);
     }
 
     private function seedAdmin(): Usuario

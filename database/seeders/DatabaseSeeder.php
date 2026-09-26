@@ -18,96 +18,86 @@ class DatabaseSeeder extends Seeder
         $now = now();
 
         $usuarios = [
-            'admin' => DB::table('usuarios')->insertGetId([
+            'admin' => $this->seedUsuario([
                 'nombre' => 'Admin',
                 'correo' => 'admin@example.com',
                 'password' => Hash::make('secret123'),
                 'rol' => 'admin',
                 'state' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]),
-            'vendedor' => DB::table('usuarios')->insertGetId([
+            ], $now),
+            'vendedor' => $this->seedUsuario([
                 'nombre' => 'Vendedor',
                 'correo' => 'vendedor@example.com',
                 'password' => Hash::make('secret123'),
                 'rol' => 'vendedor',
                 'state' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]),
-            'almacenista' => DB::table('usuarios')->insertGetId([
+            ], $now),
+            'almacenista' => $this->seedUsuario([
                 'nombre' => 'Almacenista',
                 'correo' => 'almacenista@example.com',
                 'password' => Hash::make('secret123'),
                 'rol' => 'almacenista',
                 'state' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]),
-            'socio' => DB::table('usuarios')->insertGetId([
+            ], $now),
+            'socio' => $this->seedUsuario([
                 'nombre' => 'Socio Demo',
                 'correo' => 'socio@example.com',
                 'password' => Hash::make('secret123'),
                 'rol' => 'socio',
                 'state' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]),
+            ], $now),
         ];
 
-        DB::table('categorias')->insert([
+        foreach ([
             [
                 'nombre' => 'Familiar',
                 'descripcion' => 'Modelo familiar',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
             [
                 'nombre' => 'Silla',
                 'descripcion' => 'Modelo silla',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
-        ]);
+        ] as $categoria) {
+            DB::table('categorias')->updateOrInsert(['nombre' => $categoria['nombre']], [
+                ...$categoria, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
 
-        DB::table('tamanos')->insert([
+        foreach ([
             [
                 'nombre' => 'Grande',
                 'descripcion' => 'Tamaño grande',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
             [
                 'nombre' => 'Mediana',
                 'descripcion' => 'Tamaño mediano',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
-        ]);
+        ] as $tamano) {
+            DB::table('tamanos')->updateOrInsert(['nombre' => $tamano['nombre']], [
+                ...$tamano, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
 
-        DB::table('ubicaciones')->insert([
+        foreach ([
             [
                 'nombre' => 'Mercado',
                 'descripcion' => 'Sucursal mercado',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
             [
                 'nombre' => 'Bodega',
                 'descripcion' => 'Bodega principal',
-                'created_at' => $now,
-                'updated_at' => $now,
             ],
-        ]);
+        ] as $ubicacion) {
+            DB::table('ubicaciones')->updateOrInsert(['nombre' => $ubicacion['nombre']], [
+                ...$ubicacion, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
 
-        DB::table('colores')->insert([
-            ['nombre' => 'Blanco', 'created_at' => $now, 'updated_at' => $now],
-            ['nombre' => 'Azul', 'created_at' => $now, 'updated_at' => $now],
-            ['nombre' => 'Rojo', 'created_at' => $now, 'updated_at' => $now],
-            ['nombre' => 'Verde', 'created_at' => $now, 'updated_at' => $now],
-            ['nombre' => 'Amarillo', 'created_at' => $now, 'updated_at' => $now],
-        ]);
+        foreach (['Blanco', 'Azul', 'Rojo', 'Verde', 'Amarillo'] as $color) {
+            DB::table('colores')->updateOrInsert(['nombre' => $color], [
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
 
         $categoriaId = DB::table('categorias')->where('nombre', 'Familiar')->value('id');
         $tamanoId = DB::table('tamanos')->where('nombre', 'Grande')->value('id');
@@ -116,55 +106,43 @@ class DatabaseSeeder extends Seeder
         $colorIds = array_map('intval', $colorIds);
         sort($colorIds);
 
-        $hamacaId = DB::table('hamacas')->insertGetId([
-            'nombre' => 'Familiar Base',
+        $hamacaNombre = 'Familiar Grande - Blanco / Azul / Rojo / Verde';
+        $hamacaData = [
             'descripcion' => 'Modelo base familiar',
             'categoria_id' => $categoriaId,
             'tamano_id' => $tamanoId,
             'precio' => 1500,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+        $hamacaId = DB::table('hamacas')->where('nombre', $hamacaNombre)->whereNull('deleted_at')->value('id');
+        if ($hamacaId) {
+            DB::table('hamacas')->where('id', $hamacaId)->update($hamacaData);
+        } else {
+            $hamacaId = DB::table('hamacas')->insertGetId(['nombre' => $hamacaNombre, ...$hamacaData]);
+        }
+        $hamacaId = (int) $hamacaId;
 
-        $composicionClave = hash('sha256', implode(',', $colorIds));
-
-        $varianteId = DB::table('hamaca_variantes')->insertGetId([
-            'hamaca_id' => $hamacaId,
-            'nombre' => 'Variante demo',
-            'composicion_clave' => $composicionClave,
-            'state' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        DB::table('hamaca_variante_color')->insert(
-            collect($colorIds)->map(fn(int $colorId) => [
-                'hamaca_variante_id' => $varianteId,
+        DB::table('hamaca_color')->insertOrIgnore(
+            collect($colorIds)->map(fn (int $colorId) => [
+                'hamaca_id' => $hamacaId,
                 'color_id' => $colorId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ])->all()
         );
 
-        $inventarioId = DB::table('inventario_hamacas')->insertGetId([
+        DB::table('inventario_hamacas')->updateOrInsert([
             'hamaca_id' => $hamacaId,
-            'hamaca_variante_id' => $varianteId,
             'usuario_id' => $usuarios['socio'],
             'ubicacion_id' => $ubicacionId,
-            'composicion_clave' => $composicionClave,
+        ], [
             'cantidad' => 5,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
 
-        DB::table('inventario_hamaca_color')->insert(collect($colorIds)->map(fn(int $colorId) => [
-            'inventario_hamaca_id' => $inventarioId,
-            'color_id' => $colorId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all());
-
-        DB::table('clientes')->insert([
+        DB::table('clientes')->updateOrInsert(['correo' => 'cliente@example.com'], [
             'nombre' => 'Cliente Demo',
             'ruc' => 'J0310000000001',
             'direccion' => 'Managua',
@@ -288,5 +266,16 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command?->info('Credenciales de desarrollo: admin@example.com / secret123');
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function seedUsuario(array $attributes, mixed $now): int
+    {
+        DB::table('usuarios')->updateOrInsert(
+            ['correo' => $attributes['correo']],
+            [...$attributes, 'created_at' => $now, 'updated_at' => $now],
+        );
+
+        return (int) DB::table('usuarios')->where('correo', $attributes['correo'])->value('id');
     }
 }

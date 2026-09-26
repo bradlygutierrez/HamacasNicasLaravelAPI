@@ -23,7 +23,19 @@ class FotoController extends Controller
     public function update(Request $request, Foto $foto)
     {
         $data = $request->validate(['ruta' => 'sometimes|string|max:255', 'foto' => 'sometimes|image|max:4096', 'hamaca_ids' => 'sometimes|array|min:1', 'hamaca_ids.*' => 'integer|exists:hamacas,id']);
-        DB::transaction(function () use ($request, $data, $foto) { if ($request->hasFile('foto')) $foto->update(['ruta' => $request->file('foto')->store('fotos', 'public')]); elseif (isset($data['ruta'])) $foto->update(['ruta' => $data['ruta']]); if (array_key_exists('hamaca_ids', $data)) $foto->hamacas()->sync($data['hamaca_ids']); });
+        DB::transaction(function () use ($request, $data, $foto): void {
+            if ($request->hasFile('foto')) {
+                $this->deleteLocalFile($foto->ruta);
+                $foto->update(['ruta' => $request->file('foto')->store('fotos', 'public')]);
+            } elseif (array_key_exists('ruta', $data)) {
+                $this->deleteLocalFile($foto->ruta);
+                $foto->update(['ruta' => $data['ruta']]);
+            }
+
+            if (array_key_exists('hamaca_ids', $data)) {
+                $foto->hamacas()->sync($data['hamaca_ids']);
+            }
+        });
         return new FotoResource($foto->fresh()->load('hamacas'));
     }
     public function destroy(Foto $foto)
