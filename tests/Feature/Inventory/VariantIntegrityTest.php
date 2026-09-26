@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Inventory;
 
-use App\Models\HamacaVariante;
 use App\Models\RecetaHamaca;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Laravel\Sanctum\Sanctum;
@@ -14,101 +13,41 @@ class VariantIntegrityTest extends TestCase
     use BuildsInventoryFixtures;
     use DatabaseTransactions;
 
-    public function test_variant_cannot_change_parent_hamaca(): void
+    public function test_product_identity_cannot_change_after_recipe_history_exists(): void
     {
-        $operador = $this->userWithRole('almacenista');
-        $seed = $this->catalogFixture();
-        $other = $this->catalogFixture(['Negro']);
-        Sanctum::actingAs($operador);
-
-        $this->putJson("/api/v1/hamaca-variantes/{$seed['variante_id']}", [
-            'hamaca_id' => $other['hamaca_id'],
-        ])->assertStatus(422)
-            ->assertJsonPath('message', 'La variante no puede cambiar de modelo. Creá una nueva variante.');
-
-        $this->assertDatabaseHas('hamaca_variantes', [
-            'id' => $seed['variante_id'],
-            'hamaca_id' => $seed['hamaca_id'],
-        ]);
-    }
-
-    public function test_variant_with_recipe_cannot_change_color_composition(): void
-    {
-        $operador = $this->userWithRole('almacenista');
-        $seed = $this->catalogFixture();
-        $newColor = $this->catalogFixture(['Dorado'])['color_ids'][0];
+        $operator = $this->userWithRole('admin');
+        $product = $this->catalogFixture();
+        $other = $this->catalogFixture(['Dorado']);
         RecetaHamaca::create([
-            'hamaca_id' => $seed['hamaca_id'],
-            'hamaca_variante_id' => $seed['variante_id'],
-            'version' => 1,
-            'estado' => 'borrador',
-            'usuario_id' => $operador->id,
+            'hamaca_id' => $product['hamaca_id'], 'version' => 1,
+            'estado' => 'borrador', 'usuario_id' => $operator->id,
         ]);
-        Sanctum::actingAs($operador);
+        Sanctum::actingAs($operator);
 
-        $this->putJson("/api/v1/hamaca-variantes/{$seed['variante_id']}", [
-            'color_ids' => [$newColor],
-        ])->assertStatus(422)
-            ->assertJsonPath('message', 'La variante ya tiene fórmulas asociadas; creá una nueva variante para otra composición de colores.');
+        $this->putJson("/api/v1/hamacas/{$product['hamaca_id']}", [
+            'color_ids' => $other['color_ids'],
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'La hamaca ya tiene historial productivo o comercial. Creá una nueva hamaca para otra combinación de colores.');
+
+        $this->putJson("/api/v1/hamacas/{$product['hamaca_id']}", [
+            'categoria_id' => $other['categoria_id'],
+            'tamano_id' => $other['tamano_id'],
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'La clasificación de una hamaca con historial no puede cambiarse. Creá una nueva hamaca.');
     }
 
-    public function test_same_composition_in_different_order_reuses_existing_variant(): void
+    public function test_name_and_price_remain_editable_after_recipe_history_exists(): void
     {
-        $operador = $this->userWithRole('almacenista');
-        $catalog = $this->catalogFixture(['Rojo', 'Azul', 'Verde']);
-        Sanctum::actingAs($operador);
+        $operator = $this->userWithRole('admin');
+        $product = $this->catalogFixture();
+        RecetaHamaca::create([
+            'hamaca_id' => $product['hamaca_id'], 'version' => 1,
+            'estado' => 'borrador', 'usuario_id' => $operator->id,
+        ]);
+        Sanctum::actingAs($operator);
 
-        $this->postJson('/api/v1/hamaca-variantes', [
-            'hamaca_id' => $catalog['hamaca_id'],
-            'color_ids' => array_reverse($catalog['color_ids']),
-            'nombre' => 'Misma composicion',
+        $this->putJson("/api/v1/hamacas/{$product['hamaca_id']}", [
+            'nombre' => 'Nombre personalizado', 'precio' => 1900,
         ])->assertOk();
-
-        $this->assertSame(
-            1,
-            HamacaVariante::where('hamaca_id', $catalog['hamaca_id'])
-                ->where('composicion_clave', $catalog['composition_key'])
-                ->count()
-        );
-    }
-
-    public function test_variant_with_inventory_cannot_change_color_composition(): void
-    {
-        $operador = $this->userWithRole('almacenista');
-        $seed = $this->inventoryFixture(10);
-        $newColor = $this->catalogFixture(['Dorado'])['color_ids'][0];
-        Sanctum::actingAs($operador);
-
-        $this->putJson("/api/v1/hamaca-variantes/{$seed['variante_id']}", [
-            'color_ids' => [$newColor],
-        ])->assertStatus(409)
-            ->assertJsonPath(
-                'errors.color_ids.0',
-                'La variante ya tiene inventario o historial; crea una nueva variante para otra composición.'
-            );
-    }
-
-    public function test_inventory_update_cannot_override_variant_colors_with_legacy_payload(): void
-    {
-        $operador = $this->userWithRole('almacenista');
-        $seed = $this->inventoryFixture(10);
-        $otherColor = $this->catalogFixture(['Morado'])['color_ids'][0];
-        Sanctum::actingAs($operador);
-
-        $this->putJson("/api/v1/inventario-hamacas/{$seed['inventario_id']}", [
-            'hamaca_variante_id' => $seed['variante_id'],
-            'usuario_id' => $seed['propietario_id'],
-            'ubicacion_id' => $seed['ubicacion_origen_id'],
-            'cantidad' => 8,
-            'color_ids' => [$otherColor],
-        ])->assertOk();
-
-        $variante = HamacaVariante::with('colores')->findOrFail($seed['variante_id']);
-
-        $this->assertSame($seed['composition_key'], $variante->composicion_clave);
-        $this->assertEqualsCanonicalizing(
-            $seed['color_ids'],
-            $variante->colores->pluck('id')->all()
-        );
     }
 }

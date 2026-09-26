@@ -3,6 +3,7 @@
 namespace Tests\Feature\Sales;
 
 use App\Models\Usuario;
+use App\Models\Hamaca;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Config;
@@ -58,6 +59,23 @@ class PosSaleTest extends TestCase
             'cantidad' => 2,
             'tipo' => 'salida',
         ]);
+    }
+
+    public function test_pos_invoice_keeps_hamaca_name_between_101_and_150_characters(): void
+    {
+        $vendor = $this->userWithRole('vendedor');
+        $seed = $this->inventoryFixture(2, $vendor);
+        $name = str_repeat('H', 120);
+        Hamaca::findOrFail($seed['hamaca_id'])->update(['nombre' => $name]);
+        Sanctum::actingAs($vendor);
+
+        $response = $this->postJson('/api/v1/pos/ventas', [
+            'canal' => 'pos', 'nombre_cliente' => 'Cliente nombre largo', 'metodo_pago' => 'efectivo',
+            'items' => [['inventario_hamaca_id' => $seed['inventario_id'], 'cantidad' => 1]],
+        ])->assertCreated();
+
+        $detailId = $response->json('data.detalles.0.id');
+        $this->assertSame($name, DB::table('detalle_facturas')->where('id', $detailId)->value('hamaca_nombre'));
     }
 
     public function test_preview_calculates_without_mutating_invoice_stock_or_movements(): void
@@ -362,15 +380,14 @@ class PosSaleTest extends TestCase
             'hamaca_id' => $hamacaId,
             'usuario_id' => $socioId,
             'ubicacion_id' => $ubicacionId,
-            'composicion_clave' => hash('sha256', implode(',', collect($colorIds)->sort()->values()->all())),
             'cantidad' => 4,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         foreach ($colorIds as $colorId) {
-            DB::table('inventario_hamaca_color')->insert([
-                'inventario_hamaca_id' => $inventarioId,
+            DB::table('hamaca_color')->insert([
+                'hamaca_id' => $hamacaId,
                 'color_id' => $colorId,
                 'created_at' => now(),
                 'updated_at' => now(),

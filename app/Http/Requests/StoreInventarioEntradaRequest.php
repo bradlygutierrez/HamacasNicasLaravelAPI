@@ -17,7 +17,7 @@ class StoreInventarioEntradaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'hamaca_variante_id' => ['required', 'integer', 'exists:hamaca_variantes,id'],
+            'hamaca_id' => ['required', 'integer', 'exists:hamacas,id'],
             'usuario_id' => ['required', 'integer', 'exists:usuarios,id'],
             'ubicacion_id' => ['required', 'integer', 'exists:ubicaciones,id'],
             'cantidad' => ['required', 'integer', 'min:1'],

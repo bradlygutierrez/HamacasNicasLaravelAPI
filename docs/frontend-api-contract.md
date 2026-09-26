@@ -593,16 +593,17 @@ Laravel `JsonResource` envuelve recursos individuales como `{ "data": { ... } }`
   "hamaca_id": 1,
   "usuario_id": 2,
   "ubicacion_id": 1,
-  "color_ids": [1, 2, 3, 4],
   "cantidad": 5
 }
 ```
 
-- Validacion: `hamaca_id`, `usuario_id`, `ubicacion_id` requeridos integer existentes; `color_ids` requerido array min 1 con ids existentes; `cantidad` requerida integer min 1.
-- Comportamiento: si ya existe inventario con misma hamaca, usuario, ubicacion y composicion de colores, suma cantidad; si no existe, crea.
-- Respuesta `201`: `{ "message": "Inventario creado correctamente", "data": "InventarioHamaca" }`.
+- Validacion: `hamaca_id`, `usuario_id`, `ubicacion_id` y `cantidad` son requeridos. Los colores se obtienen del producto.
+- Comportamiento: el stock se agrupa por Hamaca, propietario y ubicación.
+- Respuesta `201`: `{ "message": "Entrada registrada correctamente.", "data": "InventarioHamaca" }`.
 
-#### `PUT /api/v1/inventario-hamacas/{inventarioHamaca}`
+Las modificaciones de stock se hacen mediante `POST /api/v1/inventario/salidas` y `POST /api/v1/inventario/transferencias`; no se edita la composición del inventario.
+
+#### Sin endpoint activo: `PUT /api/v1/inventario-hamacas/{inventarioHamaca}`
 
 - Auth: `almacenista` o `admin`.
 - Body completo, no parcial:
@@ -940,9 +941,19 @@ Con los endpoints activos actuales, las pantallas viables son:
 3. Catalogos CRUD admin: categorias, tamanos, ubicaciones, colores.
 4. Productos/hamacas: listado publico, detalle, crear/editar admin.
 5. Fotos: listado, asociar una foto a una o varias hamacas, editar, eliminar.
-6. Inventario: listado protegido, crear/sumar stock, editar composicion/cantidad, transferir, eliminar admin.
+6. Inventario: listado protegido, registrar entradas, salidas y transferencias.
 7. Usuarios admin: listado activos, crear, editar, desactivar.
 8. Movimientos: listado y detalle de auditoria.
 9. Facturas y detalle de facturas: solo lectura.
 
 La pantalla POS puede usar `POST /api/v1/pos/ventas` para registrar ventas y las rutas de facturas para consultar comprobantes emitidos.
+
+## Contrato vigente: Hamaca como producto
+
+`Hamaca` identifica el producto físico. Categoría, tamaño, colores, fotos, precio, fórmulas e inventario se asocian directamente a su `hamaca_id`.
+
+- `GET/POST /api/v1/hamacas`, `GET/PUT/DELETE /api/v1/hamacas/{hamaca}` administran el producto. Crear acepta `categoria_id`, `tamano_id`, `precio`, `color_ids[]`, `rutas[]` y `fotos[]`. Nombre vacío se sugiere como `{Categoría} {Tamaño} - {Color1} / {Color2}`.
+- `GET/POST /api/v1/hamacas/{hamaca}/recetas` y `GET /api/v1/hamacas/{hamaca}/recetas/activa` trabajan con fórmulas versionadas del producto. La primera receta puede recibir `source_hamaca_id` para copiar una fórmula activa de igual categoría y tamaño.
+- `GET /api/v1/formulas` devuelve una fila por Hamaca.
+- `GET /api/v1/proformas/productos` devuelve Hamacas activas con fórmula activa. Las líneas de proforma identifican el producto con `hamaca_id`.
+- `POST /api/v1/inventario/entradas` recibe `hamaca_id`, `usuario_id`, `ubicacion_id`, `cantidad` y `fecha` opcional. Colores se leen del producto; el inventario se identifica por Hamaca, propietario y ubicación.

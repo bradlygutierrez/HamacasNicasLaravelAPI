@@ -20,9 +20,7 @@ class HamacaFactory extends Factory
             'nombre' => $this->faker->word(),
             'descripcion' => $this->faker->sentence(),
             'categoria_id' => 1,
-            'ubicacion_id' => 1,
             'tamano_id' => 1,
-            'cantidad' => $this->faker->numberBetween(1, 50),
             'precio' => $this->faker->randomFloat(2, 50, 500),
         ];
     }

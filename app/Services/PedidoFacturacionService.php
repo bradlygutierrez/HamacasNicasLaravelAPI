@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\BusinessRuleException;
 use App\Models\Factura;
-use App\Models\HamacaVariante;
+use App\Models\Hamaca;
 use App\Models\InventarioHamaca;
 use App\Models\Movimiento;
 use App\Models\Pedido;
@@ -44,7 +44,7 @@ class PedidoFacturacionService
                     'precio_unitario' => $line['detail']->precio_unitario,
                     'descuento' => $line['detail']->descuento,
                     'subtotal' => $line['detail']->subtotal,
-                    'colores_snapshot' => json_encode($line['variant']->colores->pluck('nombre')->values()->all()),
+                    'colores_snapshot' => json_encode($line['hamaca']->colores->pluck('nombre')->values()->all()),
                 ]);
                 foreach ($line['detail']->servicios as $service) $invoiceDetail->servicios()->create(['pedido_detalle_servicio_id' => $service->id, 'servicio_adicional_id' => $service->servicio_adicional_id, 'servicio_nombre_snapshot' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal]);
                 $this->movement($inventory->id, $user->id, $invoice->id, $pedido->id, $line['detail']->cantidad, $locationId, 'salida');
@@ -63,17 +63,13 @@ class PedidoFacturacionService
 
     private function resolveLines(Pedido $pedido, array $requested, int $locationId, int $inventoryUserId): array
     {
-        $details = $pedido->detalles()->with('servicios')->lockForUpdate()->get()->keyBy('id');
+        $details = $pedido->detalles()->with(['servicios', 'hamaca.colores'])->lockForUpdate()->get()->keyBy('id');
         $lines = [];
         foreach ($requested as $input) {
             $detail = $details->get((int) $input['pedido_detalle_id']);
             if (!$detail) throw new BusinessRuleException('La línea no pertenece al pedido.', [], 422);
-            $variantId = $detail->hamaca_variante_id ?? ($input['hamaca_variante_id'] ?? null);
-            if (!$variantId) throw new BusinessRuleException('Cada línea debe tener una variante física.', ['lineas' => ['Falta resolver la variante del producto.']], 422);
-            $variant = HamacaVariante::with('colores')->lockForUpdate()->find($variantId);
-            if (!$variant || (int) $variant->hamaca_id !== (int) $detail->hamaca_id || (!$detail->hamaca_variante_id && !$variant->state)) throw new BusinessRuleException('La variante no corresponde al producto.', ['lineas' => ['La variante seleccionada no es válida.']], 422);
-            if ($detail->hamaca_variante_id && (int) $detail->hamaca_variante_id !== (int) $variant->id) throw new BusinessRuleException('La variante del pedido no puede reemplazarse.', [], 422);
-            $lines[] = ['detail' => $detail, 'variant' => $variant, 'location_id' => $locationId, 'inventory_user_id' => $inventoryUserId];
+            if (!$detail->hamaca) throw new BusinessRuleException('La hamaca del pedido ya no está disponible.', [], 422);
+            $lines[] = ['detail' => $detail, 'hamaca' => $detail->hamaca, 'location_id' => $locationId, 'inventory_user_id' => $inventoryUserId];
         }
         if (count($lines) !== $details->count()) throw new BusinessRuleException('Debe resolverse cada línea del pedido.', [], 422);
         return $lines;
@@ -83,11 +79,10 @@ class PedidoFacturacionService
     {
         $inventories = [];
         foreach ($lines as $line) {
-            $detail = $line['detail']; $variant = $line['variant'];
-            $inventory = InventarioHamaca::where('hamaca_variante_id', $variant->id)->where('usuario_id', $inventoryUserId)->where('ubicacion_id', $locationId)->lockForUpdate()->first();
-            if (!$inventory) $inventory = InventarioHamaca::create(['hamaca_id' => $variant->hamaca_id, 'hamaca_variante_id' => $variant->id, 'usuario_id' => $inventoryUserId, 'ubicacion_id' => $locationId, 'composicion_clave' => $variant->composicion_clave, 'cantidad' => 0]);
+            $detail = $line['detail']; $hamaca = $line['hamaca'];
+            $inventory = InventarioHamaca::where('hamaca_id', $hamaca->id)->where('usuario_id', $inventoryUserId)->where('ubicacion_id', $locationId)->lockForUpdate()->first();
+            if (!$inventory) $inventory = InventarioHamaca::create(['hamaca_id' => $hamaca->id, 'usuario_id' => $inventoryUserId, 'ubicacion_id' => $locationId, 'cantidad' => 0]);
             $inventory->increment('cantidad', $detail->cantidad);
-            $inventory->colores()->sync($variant->colores->pluck('id')->all());
             $this->movement($inventory->id, $operatorId, null, $pedido->id, $detail->cantidad, $locationId, 'entrada');
             $inventories[$detail->id] = $inventory->fresh();
         }

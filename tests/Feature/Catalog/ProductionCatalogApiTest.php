@@ -17,6 +17,7 @@ class ProductionCatalogApiTest extends TestCase
     {
         $admin = $this->seedUser('admin');
         Sanctum::actingAs($admin);
+        $initialPriceCount = DB::table('material_precios')->count();
 
         $response = $this->postJson('/api/v1/materiales', [
             'codigo' => 'MANILA-001',
@@ -34,19 +35,19 @@ class ProductionCatalogApiTest extends TestCase
             ->assertJsonPath('data.state', true);
 
         $materialId = $response->json('data.id');
-        $this->assertDatabaseCount('material_precios', 1);
+        $this->assertDatabaseCount('material_precios', $initialPriceCount + 1);
 
         $this->putJson("/api/v1/materiales/{$materialId}", [
             'precio_actual' => 650,
         ])->assertOk();
 
-        $this->assertDatabaseCount('material_precios', 2);
+        $this->assertDatabaseCount('material_precios', $initialPriceCount + 2);
 
         $this->putJson("/api/v1/materiales/{$materialId}", [
             'precio_actual' => 650,
         ])->assertOk();
 
-        $this->assertDatabaseCount('material_precios', 2);
+        $this->assertDatabaseCount('material_precios', $initialPriceCount + 2);
 
         $this->deleteJson("/api/v1/materiales/{$materialId}")->assertOk();
 
@@ -54,7 +55,7 @@ class ProductionCatalogApiTest extends TestCase
             'id' => $materialId,
             'state' => 0,
         ]);
-        $this->assertDatabaseCount('material_precios', 2);
+        $this->assertDatabaseCount('material_precios', $initialPriceCount + 2);
     }
 
     public function test_material_requires_purchase_content_when_units_differ(): void

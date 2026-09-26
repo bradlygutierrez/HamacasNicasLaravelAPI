@@ -17,7 +17,7 @@ class ProformaPdfService
 
     public function viewModel(Proforma $proforma): array
     {
-        $proforma->loadMissing(['vendedor', 'detalles.servicios', 'detalles.hamaca.categoria', 'detalles.hamaca.tamano', 'detalles.hamaca.fotos', 'detalles.variante.colores', 'detalles.variante.fotos', 'servicios']);
+        $proforma->loadMissing(['vendedor', 'detalles.servicios', 'detalles.hamaca.categoria', 'detalles.hamaca.tamano', 'detalles.hamaca.fotos', 'detalles.hamaca.colores', 'servicios']);
         $details = $proforma->detalles->map(fn ($detail) => [
             'quantity' => $detail->cantidad,
             'name' => $detail->hamaca_nombre_snapshot,
@@ -28,17 +28,12 @@ class ProformaPdfService
             'services' => $detail->servicios->map(fn ($service) => $this->serviceLine($service))->all(),
         ])->all();
         $sheets = [];
-        foreach ($proforma->detalles->groupBy(fn ($detail) => $detail->hamaca_id !== null
-            ? $detail->hamaca_id . ':' . ($detail->hamaca_variante_id ?? '')
-            : 'legacy-detail-' . $detail->id) as $group) {
+        foreach ($proforma->detalles->groupBy(fn ($detail) => $detail->hamaca_id !== null ? (string) $detail->hamaca_id : 'legacy-detail-' . $detail->id) as $group) {
             $detail = $group->first();
-            $variantPhotos = $detail->variante?->fotos?->sortBy('id') ?? collect();
-            $resolvedPhotos = $this->images->resolveMany($variantPhotos);
-            if (!$resolvedPhotos) $resolvedPhotos = $this->images->resolveMany($detail->hamaca?->fotos?->sortBy('id') ?? collect());
+            $resolvedPhotos = $this->images->resolveMany($detail->hamaca?->fotos?->sortBy('id') ?? collect());
             $sheets[] = [
                 'name' => $detail->hamaca_nombre_snapshot,
-                'variant' => $detail->variante?->nombre,
-                'colors' => $detail->variante?->colores?->pluck('nombre')->all() ?? [],
+                'colors' => $detail->hamaca?->colores?->pluck('nombre')->all() ?? [],
                 'category' => $detail->hamaca?->categoria?->nombre,
                 'size' => $detail->hamaca?->tamano?->nombre,
                 'quantity' => $group->sum('cantidad'),

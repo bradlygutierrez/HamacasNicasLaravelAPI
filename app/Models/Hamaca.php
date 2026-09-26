@@ -64,9 +64,9 @@ class Hamaca extends Model
         )->withTimestamps();
     }
 
-    public function variantes()
+    public function colores()
     {
-        return $this->hasMany(HamacaVariante::class, 'hamaca_id');
+        return $this->belongsToMany(Color::class, 'hamaca_color', 'hamaca_id', 'color_id')->withTimestamps();
     }
 
     public function recetas()

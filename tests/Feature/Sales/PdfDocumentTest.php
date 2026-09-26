@@ -7,7 +7,6 @@ use App\Models\FacturaServicio;
 use App\Models\Foto;
 use App\Models\DetalleFactura;
 use App\Models\DetalleFacturaServicio;
-use App\Models\HamacaVariante;
 use App\Models\Pedido;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
@@ -117,30 +116,29 @@ class PdfDocumentTest extends TestCase
         $this->assertNull($resolver->resolve('http://localhost/no-existe.png'));
     }
 
-    public function test_proforma_sheets_prefer_variant_photos_then_fallback_to_hamaca_and_group_units(): void
+    public function test_proforma_sheets_use_hamaca_photos_and_group_units(): void
     {
         $vendor = $this->userWithRole('vendedor');
         $catalog = $this->catalogFixture();
         $proforma = $this->proforma($vendor, 'PRO-' . uniqid());
         Storage::fake('public');
         $pixel = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
-        Storage::disk('public')->put('fotos/variant.png', $pixel);
+        Storage::disk('public')->put('fotos/product.png', $pixel);
         Storage::disk('public')->put('fotos/model.png', $pixel);
-        $variantPhoto = Foto::create(['ruta' => 'fotos/variant.png']);
+        $productPhoto = Foto::create(['ruta' => 'fotos/product.png']);
         $modelPhoto = Foto::create(['ruta' => 'fotos/model.png']);
-        $variantPhoto->variantes()->attach($catalog['variante_id']);
+        $productPhoto->hamacas()->attach($catalog['hamaca_id']);
         $modelPhoto->hamacas()->attach($catalog['hamaca_id']);
-        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'hamaca_variante_id' => $catalog['variante_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Modelo snapshot', 'cantidad' => 6, 'precio_unitario' => 1, 'subtotal' => 6]);
-        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'hamaca_variante_id' => $catalog['variante_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Modelo snapshot', 'cantidad' => 2, 'precio_unitario' => 1, 'subtotal' => 2]);
+        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Modelo snapshot', 'cantidad' => 6, 'precio_unitario' => 1, 'subtotal' => 6]);
+        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Modelo snapshot', 'cantidad' => 2, 'precio_unitario' => 1, 'subtotal' => 2]);
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
         $this->assertCount(1, $model['sheets']);
         $this->assertSame(8, (int) $model['sheets'][0]['quantity']);
-        $this->assertCount(1, $model['sheets'][0]['photos']);
-        $variantPhoto->variantes()->detach($catalog['variante_id']);
+        $this->assertCount(2, $model['sheets'][0]['photos']);
         $brokenPhoto = Foto::create(['ruta' => 'fotos/variant-file-missing.png']);
-        $brokenPhoto->variantes()->attach($catalog['variante_id']);
+        $brokenPhoto->hamacas()->attach($catalog['hamaca_id']);
         $fallback = app(ProformaPdfService::class)->viewModel($proforma->fresh());
-        $this->assertCount(1, $fallback['sheets'][0]['photos']);
+        $this->assertCount(2, $fallback['sheets'][0]['photos']);
     }
 
     public function test_historical_null_foreign_keys_do_not_merge_different_product_snapshots(): void
@@ -153,15 +151,15 @@ class PdfDocumentTest extends TestCase
         $this->assertCount(2, $model['sheets']);
     }
 
-    public function test_two_variants_of_one_model_generate_two_product_sheets(): void
+    public function test_two_hamaca_products_generate_two_product_sheets(): void
     {
         $vendor = $this->userWithRole('vendedor');
         $catalog = $this->catalogFixture();
-        $secondVariant = HamacaVariante::create(['hamaca_id' => $catalog['hamaca_id'], 'nombre' => 'Variante B', 'composicion_clave' => 'variant-b-' . uniqid(), 'state' => true]);
+        $secondProduct = $this->catalogFixture(['Verde']);
         $proforma = $this->proforma($vendor, 'PRO-' . uniqid());
 
-        foreach ([$catalog['variante_id'], $secondVariant->id] as $variantId) {
-            ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'hamaca_variante_id' => $variantId, 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Modelo', 'cantidad' => 1, 'precio_unitario' => 100, 'subtotal' => 100]);
+        foreach ([$catalog['hamaca_id'], $secondProduct['hamaca_id']] as $hamacaId) {
+            ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $hamacaId, 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Producto', 'cantidad' => 1, 'precio_unitario' => 100, 'subtotal' => 100]);
         }
 
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
