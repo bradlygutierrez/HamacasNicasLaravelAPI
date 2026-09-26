@@ -8,6 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::table('hamacas', function (Blueprint $table): void {
+            $table->string('nombre', 150)->change();
+        });
+        Schema::table('detalle_facturas', function (Blueprint $table): void {
+            $table->string('hamaca_nombre', 150)->change();
+        });
+
         Schema::create('hamaca_color', function (Blueprint $table): void {
             $table->integer('hamaca_id');
             $table->integer('color_id');

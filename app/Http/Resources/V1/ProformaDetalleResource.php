@@ -8,7 +8,7 @@ class ProformaDetalleResource extends JsonResource
 {
     public function toArray($request): array
     {
-        $data = ['id' => $this->id, 'hamaca_id' => $this->hamaca_id, 'receta_version_snapshot' => $this->receta_version_snapshot, 'nombre' => $this->hamaca_nombre_snapshot, 'descripcion' => $this->hamaca_descripcion_snapshot, 'cantidad' => $this->cantidad, 'precio_unitario' => $this->precio_unitario, 'descuento' => $this->descuento, 'subtotal' => $this->subtotal, 'servicios' => ProformaDetalleServicioResource::collection($this->whenLoaded('servicios'))];
+        $data = ['id' => $this->id, 'hamaca_id' => $this->hamaca_id, 'hamaca' => $this->whenLoaded('hamaca', fn () => $this->hamaca ? ['id' => $this->hamaca->id, 'nombre' => $this->hamaca->nombre, 'colores' => $this->hamaca->colores?->map(fn ($color) => ['id' => $color->id, 'nombre' => $color->nombre])->values() ?? collect()] : null), 'receta_version_snapshot' => $this->receta_version_snapshot, 'nombre' => $this->hamaca_nombre_snapshot, 'descripcion' => $this->hamaca_descripcion_snapshot, 'cantidad' => $this->cantidad, 'precio_unitario' => $this->precio_unitario, 'descuento' => $this->descuento, 'subtotal' => $this->subtotal, 'servicios' => ProformaDetalleServicioResource::collection($this->whenLoaded('servicios'))];
         if (in_array($request->user()?->rol, ['admin', 'socio'], true)) $data['costo_unitario_estimado'] = $this->costo_unitario_estimado;
         return $data;
     }

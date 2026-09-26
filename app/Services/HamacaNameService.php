@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class HamacaNameService
 {
@@ -13,6 +14,8 @@ class HamacaNameService
         $base = trim(implode(' ', array_filter([$category, $size])));
         $colors = DB::table('colores')->whereIn('id', $colorIds)->orderBy('nombre')->pluck('nombre')->all();
 
-        return $colors === [] ? $base : $base . ' - ' . implode(' / ', $colors);
+        $suggestion = $colors === [] ? $base : $base . ' - ' . implode(' / ', $colors);
+
+        return Str::substr($suggestion, 0, 150);
     }
 }

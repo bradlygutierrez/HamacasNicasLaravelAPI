@@ -91,6 +91,8 @@ class SchemaTest extends TestCase
     public function test_single_hamaca_product_schema_is_final(): void
     {
         $this->assertTrue(Schema::hasTable('hamaca_color'));
+        $this->assertStringContainsString('(150)', Schema::getColumnType('hamacas', 'nombre', true));
+        $this->assertStringContainsString('(150)', Schema::getColumnType('detalle_facturas', 'hamaca_nombre', true));
         $this->assertFalse(Schema::hasColumn('recetas_hamaca', 'hamaca_variante_id'));
         $this->assertFalse(Schema::hasColumn('inventario_hamacas', 'hamaca_variante_id'));
         $this->assertFalse(Schema::hasColumn('inventario_hamacas', 'composicion_clave'));

@@ -38,9 +38,11 @@ class RecetaHamacaService
 
     public function updateDraft(RecetaHamaca $recipe, array $data): RecetaHamaca
     {
+        $this->assertHamacaIsActive($recipe);
         if ($recipe->estado !== 'borrador') throw new BusinessRuleException('Solo se puede modificar una receta en borrador.', [], 422);
         return DB::transaction(function () use ($recipe, $data) {
             $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
+            $this->assertHamacaIsActive($recipe);
             if ($recipe->estado !== 'borrador') throw new BusinessRuleException('Solo se puede modificar una receta en borrador.', [], 422);
             if (array_key_exists('observaciones', $data)) $recipe->update(['observaciones' => $data['observaciones']]);
             $recipe->detallesMateriales()->delete(); $recipe->detallesManoObra()->delete();
@@ -53,6 +55,7 @@ class RecetaHamacaService
     {
         return DB::transaction(function () use ($recipe, $usuario) {
             $recipe = RecetaHamaca::query()->lockForUpdate()->findOrFail($recipe->id);
+            $this->assertHamacaIsActive($recipe);
             if ($recipe->estado !== 'borrador') throw new BusinessRuleException('Solo se puede activar una receta en borrador.', [], 422);
             $recipe->load(['detallesMateriales', 'detallesManoObra']);
             if ($recipe->detallesMateriales->isEmpty() && $recipe->detallesManoObra->isEmpty()) throw new BusinessRuleException('La receta debe contener materiales o mano de obra.', [], 422);
@@ -67,7 +70,15 @@ class RecetaHamacaService
 
     public function discard(RecetaHamaca $recipe): RecetaHamaca
     {
+        $this->assertHamacaIsActive($recipe);
         if ($recipe->estado !== 'borrador') throw new BusinessRuleException('Solo se puede descartar una receta en borrador.', [], 422);
         $recipe->update(['estado' => 'descartada']); return $recipe->load(['hamaca.categoria', 'hamaca.tamano', 'hamaca.colores', 'detallesMateriales.material', 'detallesManoObra.proceso']);
+    }
+
+    private function assertHamacaIsActive(RecetaHamaca $recipe): void
+    {
+        if ($recipe->hamaca?->trashed()) {
+            throw new BusinessRuleException('Las fórmulas de hamacas archivadas no pueden modificarse.', [], 422);
+        }
     }
 }

@@ -97,6 +97,9 @@ class VentaService
             if (!$inventario) {
                 throw new BusinessRuleException('Inventario no encontrado.', ['items' => ['El inventario seleccionado no existe.']], 422);
             }
+            if (!$inventario->hamaca || $inventario->hamaca->trashed()) {
+                throw new BusinessRuleException('La hamaca está archivada y no puede venderse.', [], 422);
+            }
             if ((int) $inventario->cantidad < $item['cantidad']) {
                 throw new BusinessRuleException('Stock insuficiente.', ['items' => ["Solo hay {$inventario->cantidad} unidades disponibles."]]);
             }

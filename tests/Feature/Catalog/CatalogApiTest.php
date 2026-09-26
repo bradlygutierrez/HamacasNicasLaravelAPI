@@ -3,9 +3,11 @@
 namespace Tests\Feature\Catalog;
 
 use App\Models\Usuario;
+use App\Models\Foto;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -28,6 +30,15 @@ class CatalogApiTest extends TestCase
         $this->getJson("/api/v1/hamacas/{$hamacaId}")
             ->assertOk()
             ->assertJsonPath('data.id', $hamacaId);
+    }
+
+    public function test_detailed_hamaca_catalog_clamps_page_size_to_one_hundred(): void
+    {
+        $this->seedBaseCatalog();
+        Sanctum::actingAs($this->seedAdmin());
+
+        $this->getJson('/api/v1/hamacas/detalles?per_page=1000')
+            ->assertOk()->assertJsonPath('meta.per_page', 100);
     }
 
     public function test_photo_can_be_shared_between_multiple_hamacas(): void
@@ -66,6 +77,52 @@ class CatalogApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.nombre', 'Individual actualizado');
         $this->postJson('/api/v1/tamanos', ['descripcion' => 'Falta nombre'])->assertStatus(422);
+    }
+
+    public function test_hamaca_creation_and_suggested_name_support_150_unicode_characters(): void
+    {
+        $admin = $this->seedAdmin();
+        $categoriaId = DB::table('categorias')->insertGetId(['nombre' => str_repeat('é', 50), 'created_at' => now(), 'updated_at' => now()]);
+        $tamanoId = DB::table('tamanos')->insertGetId(['nombre' => str_repeat('ó', 50), 'created_at' => now(), 'updated_at' => now()]);
+        $colorId = DB::table('colores')->insertGetId(['nombre' => str_repeat('ñ', 50), 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/hamacas', [
+            'categoria_id' => $categoriaId, 'tamano_id' => $tamanoId,
+            'precio' => 1500, 'color_ids' => [$colorId],
+        ])->assertCreated()
+            ->assertJsonPath('data.nombre', mb_substr(str_repeat('é', 50).' '.str_repeat('ó', 50).' - '.str_repeat('ñ', 50), 0, 150));
+    }
+
+    public function test_photo_copy_source_returns_local_image_bytes_and_rejects_missing_or_external_files(): void
+    {
+        Storage::fake('public');
+        $contents = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        Storage::disk('public')->put('fotos/copy-source.png', $contents);
+        $local = Foto::create(['ruta' => 'fotos/copy-source.png']);
+        $missing = Foto::create(['ruta' => 'fotos/missing.png']);
+        $external = Foto::create(['ruta' => 'https://example.com/image.png']);
+
+        $copyResponse = $this->get("/api/v1/fotos/{$local->id}/copy-source")
+            ->assertOk()->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('Access-Control-Allow-Origin', '*');
+        $this->assertSame($contents, file_get_contents($copyResponse->baseResponse->getFile()->getPathname()));
+        $this->getJson("/api/v1/fotos/{$missing->id}/copy-source")->assertNotFound();
+        $this->getJson("/api/v1/fotos/{$external->id}/copy-source")->assertUnprocessable();
+    }
+
+    public function test_deleting_photo_removes_local_file_but_never_external_url(): void
+    {
+        $admin = $this->seedAdmin();
+        Sanctum::actingAs($admin);
+        Storage::fake('public');
+        Storage::disk('public')->put('fotos/to-delete.png', 'pixels');
+        $local = Foto::create(['ruta' => 'fotos/to-delete.png']);
+        $external = Foto::create(['ruta' => 'https://example.com/keep.png']);
+
+        $this->deleteJson("/api/v1/fotos/{$local->id}")->assertOk();
+        $this->deleteJson("/api/v1/fotos/{$external->id}")->assertOk();
+        Storage::disk('public')->assertMissing('fotos/to-delete.png');
     }
 
     private function seedAdmin(): Usuario

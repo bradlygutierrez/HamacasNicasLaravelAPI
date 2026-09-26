@@ -38,6 +38,32 @@ class RecetaHamacaApiTest extends TestCase
             ->assertJsonStructure(['data' => ['resumen']]);
     }
 
+    public function test_archived_hamaca_recipes_are_read_only(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamaca();
+        $material = $this->material();
+        $recipe = RecetaHamaca::create([
+            'hamaca_id' => $hamaca->id, 'version' => 1, 'estado' => 'borrador', 'usuario_id' => $admin->id,
+        ]);
+        $recipe->detallesMateriales()->create(['material_id' => $material->id, 'cantidad' => 1]);
+        $hamaca->delete();
+        Sanctum::actingAs($admin);
+
+        $this->getJson("/api/v1/recetas-hamaca/{$recipe->id}")->assertOk();
+        $this->getJson("/api/v1/recetas-hamaca/{$recipe->id}/costos")->assertOk();
+        $this->putJson("/api/v1/recetas-hamaca/{$recipe->id}", ['materiales' => [], 'mano_obra' => []])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Las fórmulas de hamacas archivadas no pueden modificarse.');
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/activar")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Las fórmulas de hamacas archivadas no pueden modificarse.');
+        $this->postJson("/api/v1/recetas-hamaca/{$recipe->id}/descartar")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Las fórmulas de hamacas archivadas no pueden modificarse.');
+        $this->assertDatabaseHas('recetas_hamaca', ['id' => $recipe->id, 'estado' => 'borrador']);
+    }
+
     public function test_first_recipe_is_version_one_draft_and_second_draft_is_rejected(): void
     {
         $admin = $this->user('admin');

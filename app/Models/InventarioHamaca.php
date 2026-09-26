@@ -26,7 +26,7 @@ class InventarioHamaca extends Model
 
     public function hamaca()
     {
-        return $this->belongsTo(Hamaca::class);
+        return $this->belongsTo(Hamaca::class)->withTrashed();
     }
 
     public function ubicacion()

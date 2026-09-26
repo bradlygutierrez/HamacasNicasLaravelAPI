@@ -13,7 +13,8 @@ class InventarioService
     public function entrada(array $data, int $operadorId): InventarioHamaca
     {
         return DB::transaction(function () use ($data, $operadorId) {
-            Hamaca::with('colores')->lockForUpdate()->findOrFail($data['hamaca_id']);
+            $hamaca = Hamaca::withTrashed()->with('colores')->lockForUpdate()->findOrFail($data['hamaca_id']);
+            if ($hamaca->trashed()) throw new BusinessRuleException('No se puede registrar entrada para una hamaca archivada.', [], 422);
             $inventory = InventarioHamaca::where('hamaca_id', $data['hamaca_id'])->where('usuario_id', $data['usuario_id'])->where('ubicacion_id', $data['ubicacion_id'])->lockForUpdate()->first();
             if ($inventory) $inventory->increment('cantidad', $data['cantidad']);
             else $inventory = InventarioHamaca::create(['hamaca_id' => $data['hamaca_id'], 'usuario_id' => $data['usuario_id'], 'ubicacion_id' => $data['ubicacion_id'], 'cantidad' => $data['cantidad']]);

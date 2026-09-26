@@ -291,6 +291,8 @@ class PedidoApiTest extends TestCase
     {
         $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
         $detail = ProformaDetalle::where('proforma_id', $proforma->id)->firstOrFail();
+        $longSnapshot = str_repeat('P', 120);
+        $detail->update(['hamaca_nombre_snapshot' => $longSnapshot]);
         $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega fase 5 ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
         Sanctum::actingAs($admin);
         $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
@@ -298,6 +300,7 @@ class PedidoApiTest extends TestCase
         $pedidoDetailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
         $payload = ['canal' => 'pos', 'metodo_pago' => 'efectivo', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $pedidoDetailId]]];
         $first = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", $payload)->assertCreated()->json('data');
+        $this->assertSame($longSnapshot, DB::table('detalle_facturas')->where('factura_id', $first['id'])->value('hamaca_nombre'));
         $stock = DB::table('inventario_hamacas')->where('hamaca_id', $detail->hamaca_id)->where('ubicacion_id', $locationId)->first();
         $this->assertSame(0, (int) $stock->cantidad);
         $this->assertDatabaseHas('movimientos', ['pedido_id' => $pedidoId, 'factura_id' => null, 'tipo' => 'entrada', 'cantidad' => 2]);

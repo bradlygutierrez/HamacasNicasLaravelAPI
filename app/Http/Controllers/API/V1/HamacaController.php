@@ -27,9 +27,11 @@ class HamacaController extends Controller
         return new HamacaCollection($query->paginate($perPage));
     }
 
-    public function getHamacasWithDetails()
+    public function getHamacasWithDetails(Request $request)
     {
-        return new HamacaCollection(Hamaca::with(['categoria', 'tamano', 'colores', 'fotos', 'inventarios.usuario', 'inventarios.ubicacion'])->latest()->paginate());
+        $perPage = min(max($request->integer('per_page', 15), 1), 100);
+
+        return new HamacaCollection(Hamaca::with(['categoria', 'tamano', 'colores', 'fotos', 'inventarios.usuario', 'inventarios.ubicacion'])->latest()->paginate($perPage));
     }
 
     public function store(Request $request, HamacaNameService $names)

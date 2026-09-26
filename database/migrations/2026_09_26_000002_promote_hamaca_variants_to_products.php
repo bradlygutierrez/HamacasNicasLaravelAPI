@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -35,6 +36,7 @@ return new class extends Migration
                 $name = $colorNames !== []
                     ? $baseName . ' - ' . implode(' / ', $colorNames)
                     : ($variantName !== '' ? $baseName . ' - ' . $variantName : $baseName);
+                $name = Str::substr($name, 0, 150);
 
                 $legacyInventoryIds = DB::table('inventario_hamacas')
                     ->where('hamaca_id', $parent->id)

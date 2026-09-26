@@ -84,6 +84,28 @@ class ProformaApiTest extends TestCase
         Sanctum::actingAs($vendor); $this->getJson("/api/v1/proformas/{$id}")->assertOk()->assertJsonPath('data.analisis_interno', null); Sanctum::actingAs($other); $this->getJson("/api/v1/proformas/{$id}")->assertForbidden();
     }
 
+    public function test_reloaded_proforma_exposes_current_archived_hamaca_metadata_and_keeps_snapshots(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamacaWithRecipe();
+        $colorId = DB::table('colores')->insertGetId(['nombre' => 'Color actual ' . uniqid(), 'created_at' => now(), 'updated_at' => now()]);
+        $hamaca->colores()->attach($colorId);
+        Sanctum::actingAs($admin);
+
+        $proformaId = $this->postJson('/api/v1/proformas', $this->payload($hamaca, $admin->id))->assertCreated()->json('data.id');
+        $detail = ProformaDetalle::where('proforma_id', $proformaId)->firstOrFail();
+        $detail->update(['hamaca_nombre_snapshot' => 'Nombre histórico', 'hamaca_descripcion_snapshot' => 'Descripción histórica']);
+        $hamaca->delete();
+
+        $this->getJson("/api/v1/proformas/{$proformaId}")
+            ->assertOk()
+            ->assertJsonPath('data.detalles.0.nombre', 'Nombre histórico')
+            ->assertJsonPath('data.detalles.0.descripcion', 'Descripción histórica')
+            ->assertJsonPath('data.detalles.0.hamaca.id', $hamaca->id)
+            ->assertJsonPath('data.detalles.0.hamaca.nombre', $hamaca->nombre)
+            ->assertJsonPath('data.detalles.0.hamaca.colores.0.nombre', DB::table('colores')->where('id', $colorId)->value('nombre'));
+    }
+
     public function test_status_transition_is_validated(): void
     {
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); Sanctum::actingAs($admin); $id = $this->postJson('/api/v1/proformas', $this->payload($hamaca, $admin->id))->json('data.id'); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'aceptada'])->assertStatus(409); $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk(); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'enviada'])->assertOk(); $this->postJson("/api/v1/proformas/{$id}/estado", ['estado' => 'aceptada'])->assertOk();

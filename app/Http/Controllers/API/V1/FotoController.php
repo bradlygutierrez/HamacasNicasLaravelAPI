@@ -26,6 +26,56 @@ class FotoController extends Controller
         DB::transaction(function () use ($request, $data, $foto) { if ($request->hasFile('foto')) $foto->update(['ruta' => $request->file('foto')->store('fotos', 'public')]); elseif (isset($data['ruta'])) $foto->update(['ruta' => $data['ruta']]); if (array_key_exists('hamaca_ids', $data)) $foto->hamacas()->sync($data['hamaca_ids']); });
         return new FotoResource($foto->fresh()->load('hamacas'));
     }
-    public function destroy(Foto $foto) { DB::transaction(fn () => $foto->hamacas()->detach()); $foto->delete(); return response()->json(['message' => 'Foto eliminada correctamente.']); }
-    public function copySource(Request $request, Foto $foto) { return response()->json(['data' => $foto->load('hamacas')]); }
+    public function destroy(Foto $foto)
+    {
+        DB::transaction(function () use ($foto): void {
+            $this->deleteLocalFile($foto->ruta);
+            $foto->hamacas()->detach();
+            $foto->delete();
+        });
+
+        return response()->json(['message' => 'Foto eliminada correctamente.']);
+    }
+
+    public function copySource(Foto $foto)
+    {
+        $ruta = $foto->ruta;
+        if (str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return response()->json(['message' => 'Esta foto es una URL externa y no puede copiarse como archivo local desde este endpoint.'], 422);
+        }
+
+        $path = $this->localPath($ruta);
+        if (!Storage::disk('public')->exists($path)) {
+            return response()->json(['message' => 'Archivo no encontrado.'], 404);
+        }
+
+        $fullPath = Storage::disk('public')->path($path);
+
+        return response()->file($fullPath, [
+            'Content-Type' => mime_content_type($fullPath) ?: 'application/octet-stream',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
+
+    private function deleteLocalFile(?string $ruta): void
+    {
+        if (!$ruta || str_starts_with($ruta, 'http://') || str_starts_with($ruta, 'https://')) {
+            return;
+        }
+
+        $path = $this->localPath($ruta);
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function localPath(string $ruta): string
+    {
+        $path = ltrim($ruta, '/');
+        if (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+
+        return $path;
+    }
 }
