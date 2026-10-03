@@ -50,8 +50,38 @@ class ProformaApiTest extends TestCase
     {
         $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe(); $service = ServicioAdicional::create(['nombre' => 'Servicio descuento', 'alcance' => 'producto', 'metodo_calculo' => 'fijo', 'precio_venta_actual' => 100, 'costo_actual' => 0, 'state' => true]); Sanctum::actingAs($admin);
         $payload = $this->payload($hamaca, $admin->id); $payload['detalles'][0]['descuento'] = 100; $payload['detalles'][0]['servicios'] = [['servicio_adicional_id' => $service->id, 'cantidad' => 1, 'precio_unitario' => 100, 'descuento' => 10]]; $payload['descuento_global'] = 50;
-        $preview = $this->postJson('/api/v1/proformas/calcular', $payload)->json('data.values'); $id = $this->postJson('/api/v1/proformas', $payload)->json('data.id'); $emitted = $this->postJson("/api/v1/proformas/{$id}/emitir")->json('data');
+        $previewResponse = $this->postJson('/api/v1/proformas/calcular', $payload)->assertOk(); $preview = $previewResponse->json('data.values'); $previewResponse->assertJsonPath('data.detalles.0.subtotal', '900.00')->assertJsonPath('data.detalles.0.servicios.0.subtotal', '90.00'); $this->assertSame('1100.00', (string) $preview['subtotal_bruto']); $this->assertSame('110.00', (string) $preview['descuento_lineas']); $this->assertSame('50.00', (string) $preview['descuento_global']); $this->assertSame('940.00', (string) $preview['base_neta']); $id = $this->postJson('/api/v1/proformas', $payload)->json('data.id'); $emitted = $this->postJson("/api/v1/proformas/{$id}/emitir")->json('data');
         $this->assertEquals((float) $preview['base_neta'], (float) $emitted['base_neta']); $this->assertEquals((float) $preview['total'], (float) $emitted['total']);
+    }
+
+    public function test_service_breakdowns_are_saved_for_both_service_scopes_and_explain_parent_subtotals(): void
+    {
+        $admin = $this->user('admin'); $hamaca = $this->hamacaWithRecipe();
+        $productService = ServicioAdicional::create(['nombre' => 'Empaque', 'alcance' => 'producto', 'metodo_calculo' => 'fijo', 'precio_venta_actual' => 100, 'costo_actual' => 0, 'state' => true]);
+        $orderService = ServicioAdicional::create(['nombre' => 'Transporte', 'alcance' => 'pedido', 'metodo_calculo' => 'manual', 'precio_venta_actual' => 200, 'costo_actual' => 0, 'state' => true]);
+        Sanctum::actingAs($admin);
+        $payload = $this->payload($hamaca, $admin->id);
+        $payload['detalles'][0]['servicios'] = [[
+            'servicio_adicional_id' => $productService->id, 'cantidad' => 1, 'precio_unitario' => 100,
+            'desglose' => [['descripcion' => 'Protección', 'monto' => 60, 'orden' => 1], ['descripcion' => 'Material', 'monto' => 40, 'orden' => 2]],
+        ]];
+        $payload['servicios_pedido'] = [[
+            'servicio_adicional_id' => $orderService->id, 'cantidad' => 3, 'precio_unitario' => 250, 'descuento' => 10,
+            'desglose' => [['descripcion' => 'Transporte Taller → Aeropuerto', 'monto' => 150, 'orden' => 1], ['descripcion' => 'Flete', 'monto' => 40, 'orden' => 2]],
+        ]];
+        $payload['descuento_global'] = 5;
+
+        $response = $this->postJson('/api/v1/proformas', $payload)->assertCreated();
+        $response->assertJsonPath('data.detalles.0.servicios.0.desglose.0.descripcion', 'Protección')
+            ->assertJsonPath('data.servicios_pedido.0.desglose.1.monto', '40.01')
+            ->assertJsonPath('data.servicios_pedido.0.precio_unitario', '66.67')
+            ->assertJsonPath('data.subtotal_bruto', '1300.01')
+            ->assertJsonPath('data.descuento_lineas', '10.00')
+            ->assertJsonPath('data.descuento_global', '5.00')
+            ->assertJsonPath('data.base_neta', '1285.01');
+        $this->assertDatabaseCount('proforma_servicio_desgloses', 4);
+        $this->assertDatabaseHas('proforma_servicios', ['subtotal' => '190.01', 'precio_unitario' => '66.67']);
+        $this->get("/api/v1/proformas/{$response->json('data.id')}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
 
     public function test_proforma_requires_active_hamaca_recipe_and_products_are_hamacas(): void

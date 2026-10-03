@@ -26,9 +26,17 @@ class ProformaRequest extends FormRequest
             'detalles.*.servicios' => 'nullable|array',
             'detalles.*.servicios.*.servicio_adicional_id' => 'required|integer|exists:servicios_adicionales,id',
             'detalles.*.servicios.*.cantidad' => 'required|numeric|gt:0', 'detalles.*.servicios.*.detalle' => 'nullable|string', 'detalles.*.servicios.*.precio_unitario' => 'nullable|numeric|min:0', 'detalles.*.servicios.*.descuento' => 'nullable|numeric|min:0',
+            'detalles.*.servicios.*.desglose' => 'nullable|array',
+            'detalles.*.servicios.*.desglose.*.descripcion' => 'required|string|max:255',
+            'detalles.*.servicios.*.desglose.*.monto' => 'required|numeric|min:0',
+            'detalles.*.servicios.*.desglose.*.orden' => 'nullable|integer|min:1',
             'servicios_pedido' => 'nullable|array',
             'servicios_pedido.*.servicio_adicional_id' => 'required|integer|exists:servicios_adicionales,id',
             'servicios_pedido.*.cantidad' => 'required|numeric|gt:0', 'servicios_pedido.*.detalle' => 'nullable|string', 'servicios_pedido.*.precio_unitario' => 'nullable|numeric|min:0', 'servicios_pedido.*.descuento' => 'nullable|numeric|min:0', 'servicios_pedido.*.costo_base_unitario_override' => 'nullable|numeric|min:0',
+            'servicios_pedido.*.desglose' => 'nullable|array',
+            'servicios_pedido.*.desglose.*.descripcion' => 'required|string|max:255',
+            'servicios_pedido.*.desglose.*.monto' => 'required|numeric|min:0',
+            'servicios_pedido.*.desglose.*.orden' => 'nullable|integer|min:1',
         ];
     }
 }
