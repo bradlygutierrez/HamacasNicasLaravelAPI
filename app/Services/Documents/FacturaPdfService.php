@@ -17,7 +17,7 @@ class FacturaPdfService
 
     public function viewModel(Factura $factura): array
     {
-        $factura->loadMissing(['usuario', 'pedido', 'detalles.servicios', 'servicios']);
+        $factura->loadMissing(['usuario', 'pedido', 'detalles.servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose', 'servicios.pedidoServicio.proformaServicio.desglose']);
         $company = config('documentos.empresa');
         foreach (['logo', 'firma', 'sello'] as $key) $company[$key] = $this->images->resolve($company[$key] ?? null);
         $details = $factura->detalles->map(fn ($detail) => [
@@ -28,9 +28,9 @@ class FacturaPdfService
             'unit_price' => $detail->precio_unitario,
             'discount' => $detail->descuento,
             'subtotal' => $detail->subtotal,
-            'services' => $detail->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all(),
+            'services' => $detail->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'has_approximate_unit_price' => $service->pedidoDetalleServicio?->proformaDetalleServicio?->desglose?->isNotEmpty() ?? false, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all(),
         ])->all();
-        $services = $factura->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all();
+        $services = $factura->servicios->map(fn ($service) => ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'has_approximate_unit_price' => $service->pedidoServicio?->proformaServicio?->desglose?->isNotEmpty() ?? false, 'discount' => $service->descuento, 'subtotal' => $service->subtotal])->all();
         return compact('factura', 'details', 'services', 'company') + ['dateFormatted' => $factura->fecha ? Carbon::parse($factura->fecha)->format('d/m/Y') : null, 'currency' => config('documentos.moneda', 'C$')];
     }
 

@@ -101,5 +101,5 @@ class PedidoFacturacionService
         Movimiento::create(['inventario_hamaca_id' => $inventoryId, 'usuario_id' => $operatorId, 'factura_id' => $invoiceId, 'pedido_id' => $pedidoId, 'ubicacion_origen_id' => $type === 'salida' ? $locationId : null, 'ubicacion_destino_id' => $type === 'entrada' ? $locationId : null, 'tipo' => $type, 'cantidad' => $quantity, 'fecha' => now()]);
     }
 
-    private function invoiceRelations(): array { return ['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios']; }
+    private function invoiceRelations(): array { return ['cliente', 'usuario', 'pedido', 'detalles.servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose', 'servicios.pedidoServicio.proformaServicio.desglose']; }
 }

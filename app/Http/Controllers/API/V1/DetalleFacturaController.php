@@ -18,7 +18,7 @@ class DetalleFacturaController extends Controller
     public function index(Request $request)
     {
         $this->authorizeAccess($request);
-        $query = DetalleFactura::with(['factura', 'servicios'])->latest();
+        $query = DetalleFactura::with(['factura', 'servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose'])->latest();
         if ($request->user()->rol === 'vendedor') $query->whereHas('factura', fn ($q) => $q->where('vendedor_id', $request->user()->id));
         return new DetalleFacturaCollection($query->paginate());
     }
@@ -49,7 +49,7 @@ class DetalleFacturaController extends Controller
     public function show(Request $request, DetalleFactura $detalleFactura)
     {
         $this->authorizeAccess($request, $detalleFactura);
-        return new DetalleFacturaResource($detalleFactura->load(['factura', 'servicios']));
+        return new DetalleFacturaResource($detalleFactura->load(['factura', 'servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose']));
     }
 
     /**

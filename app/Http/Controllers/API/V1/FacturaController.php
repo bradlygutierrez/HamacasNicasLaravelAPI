@@ -18,7 +18,7 @@ class FacturaController extends Controller
     public function index(\Illuminate\Http\Request $request)
     {
         if ($request->user()->rol === 'almacenista') abort(403, 'No tenés permiso para consultar facturas.');
-        $query = Factura::with(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios'])
+        $query = Factura::with(['cliente', 'usuario', 'pedido', 'detalles.servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose', 'servicios.pedidoServicio.proformaServicio.desglose'])
             ->when($request->user()->rol === 'vendedor', fn ($q) => $q->where('vendedor_id', $request->user()->id))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->string('search')->toString();
@@ -40,7 +40,7 @@ class FacturaController extends Controller
     public function show(\Illuminate\Http\Request $request, Factura $factura)
     {
         $this->assertAccess($request, $factura);
-        return new FacturaResource($factura->load(['cliente', 'usuario', 'pedido', 'detalles.servicios', 'servicios']));
+        return new FacturaResource($factura->load(['cliente', 'usuario', 'pedido', 'detalles.servicios.pedidoDetalleServicio.proformaDetalleServicio.desglose', 'servicios.pedidoServicio.proformaServicio.desglose']));
     }
 
     public function pdf(Request $request, Factura $factura)

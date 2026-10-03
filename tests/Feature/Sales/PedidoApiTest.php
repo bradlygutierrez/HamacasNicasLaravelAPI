@@ -4,11 +4,13 @@ namespace Tests\Feature\Sales;
 
 use App\Models\Hamaca;
 use App\Models\Color;
+use App\Models\Factura;
 use App\Models\Material;
 use App\Models\Pedido;
 use App\Models\PedidoDetalleServicio;
 use App\Models\PedidoServicio;
 use App\Services\PedidoFacturacionService;
+use App\Services\Documents\FacturaPdfService;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\ProformaMaterialSnapshot;
@@ -355,6 +357,39 @@ class PedidoApiTest extends TestCase
         $this->getJson('/api/v1/detalle_facturas/' . $detailInvoiceId)->assertForbidden();
         Sanctum::actingAs($this->user('almacenista'));
         $this->getJson('/api/v1/detalle_facturas')->assertForbidden();
+    }
+
+    public function test_breakdown_service_stays_exact_and_is_marked_approximate_through_order_invoice_and_pdf(): void
+    {
+        $admin = $this->user('admin'); $vendor = $this->user('vendedor'); $proforma = $this->acceptedProforma($admin, $vendor);
+        $proforma->update(['subtotal_servicios' => 190, 'subtotal_bruto' => 2190, 'descuento_lineas' => 10, 'descuento_total' => 10, 'base_neta' => 2180, 'total' => 2180]);
+        $service = $proforma->servicios()->create(['servicio_nombre_snapshot' => 'Flete', 'alcance_snapshot' => 'pedido', 'metodo_calculo_snapshot' => 'manual', 'cantidad' => 3, 'precio_unitario' => 63.33, 'descuento' => 10, 'subtotal' => 180, 'costo_base_unitario_snapshot' => 0, 'costo_unitario_estimado' => 0, 'costo_total_estimado' => 0]);
+        $service->desglose()->createMany([['descripcion' => 'Transporte', 'monto' => 150, 'orden' => 1], ['descripcion' => 'Flete', 'monto' => 40, 'orden' => 2]]);
+
+        Sanctum::actingAs($admin);
+        $pedidoId = $this->postJson("/api/v1/proformas/{$proforma->id}/pedido")->assertCreated()->json('data.id');
+        $pedidoService = DB::table('pedido_servicios')->where('pedido_id', $pedidoId)->first();
+        $this->assertSame($service->id, $pedidoService->proforma_servicio_id);
+        $this->assertSame('180.00', $pedidoService->subtotal);
+        $this->finishOrder($pedidoId);
+        $locationId = DB::table('ubicaciones')->insertGetId(['nombre' => 'Bodega aprox. ' . uniqid(), 'descripcion' => 'Managua', 'created_at' => now(), 'updated_at' => now()]);
+        $detailId = DB::table('pedido_detalles')->where('pedido_id', $pedidoId)->value('id');
+        $invoice = $this->postJson("/api/v1/pedidos/{$pedidoId}/facturar", ['canal' => 'pos', 'ubicacion_id' => $locationId, 'lineas' => [['pedido_detalle_id' => $detailId]]])->assertCreated()
+            ->assertJsonPath('data.servicios.0.precio_unitario_aproximado', true)
+            ->assertJsonPath('data.servicios.0.cantidad', '3.0000')
+            ->assertJsonPath('data.servicios.0.precio_unitario', '63.33')
+            ->assertJsonPath('data.servicios.0.descuento', '10.00')
+            ->assertJsonPath('data.servicios.0.subtotal', '180.00')
+            ->json('data');
+
+        $invoiceService = DB::table('factura_servicios')->where('factura_id', $invoice['id'])->first();
+        $this->assertSame($pedidoService->id, $invoiceService->pedido_servicio_id);
+        $this->assertSame('180.00', $invoiceService->subtotal);
+        $viewModel = app(FacturaPdfService::class)->viewModel(Factura::findOrFail($invoice['id']));
+        $this->assertTrue($viewModel['services'][0]['has_approximate_unit_price']);
+        $html = view('pdf.factura.document', $viewModel)->render();
+        $this->assertStringContainsString('Aprox.', $html);
+        $this->assertStringContainsString('C$ 180.00', $html);
     }
 
     public function test_billing_existing_stock_keeps_net_stock_unchanged(): void

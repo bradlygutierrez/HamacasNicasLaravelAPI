@@ -171,7 +171,9 @@ class PdfDocumentTest extends TestCase
         $proformaView = file_get_contents(resource_path('views/pdf/proforma/document.blade.php'));
         $invoiceView = file_get_contents(resource_path('views/pdf/factura/document.blade.php'));
 
-        $this->assertStringContainsString('Descuento aplicado', $proformaView);
+        foreach (['Precio unit.', 'Descuento', 'Subtotal bruto', 'Descuentos por líneas', 'Descuento global', 'Base neta'] as $label) $this->assertStringContainsString($label, $proformaView);
+        $this->assertStringNotContainsString('Descuento aplicado', $proformaView);
+        $this->assertStringContainsString('DESGLOSE – {{ $breakdown[\'name\'] }}', $proformaView);
         $this->assertStringContainsString('- {{ $money(abs($proforma->monto_ir)) }}', $proformaView);
         $this->assertStringContainsString('- {{ $money(abs($factura->monto_ir)) }}', $invoiceView);
         foreach (['costo_materiales_estimado', 'costo_mano_de_obra_estimado', 'costo_total_estimado', 'costo_compra_estimado', 'utilidad_estimada', 'monto_comision_vendedor'] as $internalField) {
@@ -180,15 +182,20 @@ class PdfDocumentTest extends TestCase
         }
     }
 
-    public function test_proforma_view_model_keeps_product_service_amounts(): void
+    public function test_proforma_view_model_keeps_product_service_amounts_and_breakdowns(): void
     {
         $vendor = $this->userWithRole('vendedor');
         $proforma = $this->proforma($vendor, 'PRO-' . uniqid());
         $detail = ProformaDetalle::create(['proforma_id' => $proforma->id, 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Producto', 'cantidad' => 2, 'precio_unitario' => 100, 'subtotal' => 200]);
-        ProformaDetalleServicio::create(['proforma_detalle_id' => $detail->id, 'servicio_nombre_snapshot' => 'Orilla de lujo', 'alcance_snapshot' => 'producto', 'metodo_calculo_snapshot' => 'fijo', 'cantidad' => 2, 'precio_unitario' => 25, 'descuento' => 5, 'subtotal' => 45]);
+        $service = ProformaDetalleServicio::create(['proforma_detalle_id' => $detail->id, 'servicio_nombre_snapshot' => 'Orilla de lujo', 'alcance_snapshot' => 'producto', 'metodo_calculo_snapshot' => 'fijo', 'cantidad' => 2, 'precio_unitario' => 25, 'descuento' => 5, 'subtotal' => 45]);
+        $service->desglose()->create(['descripcion' => 'Trabajo de orilla', 'monto' => 45, 'orden' => 1]);
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
         $this->assertSame('Orilla de lujo', $model['details'][0]['services'][0]['name']);
         $this->assertSame('45.00', (string) $model['details'][0]['services'][0]['subtotal']);
+        $this->assertTrue($model['details'][0]['services'][0]['has_breakdown']);
+        $this->assertStringContainsString('Aprox.', view('pdf.proforma.document', $model)->render());
+        $this->assertCount(1, $model['serviceBreakdowns']);
+        $this->assertSame('Trabajo de orilla', $model['serviceBreakdowns'][0]['rows'][0]->descripcion);
     }
 
     private function proforma(Usuario $vendor, ?string $number): Proforma

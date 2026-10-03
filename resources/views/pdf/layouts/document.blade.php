@@ -4,26 +4,26 @@
     <meta charset="utf-8">
     <title>{{ $title ?? 'Documento comercial' }}</title>
     <style>
-        @page { margin: 35px 42px 48px; }
+        @page { margin: 30px 38px 40px; }
         * { box-sizing: border-box; }
         body { margin: 0; color: #202b33; font-family: DejaVu Sans, sans-serif; font-size: 10px; line-height: 1.45; }
         h1, h2, h3, p { margin: 0; }
         table { width: 100%; border-collapse: collapse; }
-        .blue { color: #123852; }
+        .blue { color: #002060; }
         .muted { color: #63717a; }
         .small { font-size: 8px; }
-        .top-rule { border-top: 3px solid #123852; }
-        .section-title { margin: 20px 0 7px; color: #123852; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
+        .top-rule { border-top: 3px solid #002060; }
+        .section-title { margin: 20px 0 7px; color: #002060; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .4px; }
         .page-break { page-break-before: always; }
         .avoid-break { page-break-inside: avoid; }
         .amount { text-align: right; white-space: nowrap; }
         .totals { width: 44%; margin-left: auto; margin-top: 12px; }
         .totals td { padding: 3px 0; }
-        .total-row td { border-top: 2px solid #123852; color: #123852; font-size: 14px; font-weight: bold; padding-top: 8px; }
+        .total-row td { border-top: 2px solid #002060; color: #002060; font-size: 14px; font-weight: bold; padding-top: 8px; }
         .footer { margin-top: 28px; border-top: 1px solid #ccd4d9; padding-top: 8px; color: #63717a; font-size: 8px; }
         .pdf-table thead { display: table-header-group; }
         .pdf-table tr.item-row { page-break-inside: avoid; }
-        .sheet-header { border-top: 3px solid #123852; padding-top: 9px; margin-bottom: 24px; }
+        .sheet-header { border-top: 3px solid #002060; padding-top: 9px; margin-bottom: 24px; }
         .sheet-photo-main { width: 100%; max-width: 390px; max-height: 390px; }
         .sheet-photo-small { width: 170px; max-height: 145px; }
     </style>
