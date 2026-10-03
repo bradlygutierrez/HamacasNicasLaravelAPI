@@ -73,14 +73,23 @@ class ProformaApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/proformas', $payload)->assertCreated();
         $response->assertJsonPath('data.detalles.0.servicios.0.desglose.0.descripcion', 'Protección')
-            ->assertJsonPath('data.servicios_pedido.0.desglose.1.monto', '40.01')
-            ->assertJsonPath('data.servicios_pedido.0.precio_unitario', '66.67')
-            ->assertJsonPath('data.subtotal_bruto', '1300.01')
+            ->assertJsonPath('data.servicios_pedido.0.desglose.1.monto', '40.00')
+            ->assertJsonPath('data.servicios_pedido.0.precio_unitario', '63.33')
+            ->assertJsonPath('data.servicios_pedido.0.subtotal', '180.00')
+            ->assertJsonPath('data.subtotal_bruto', '1290.00')
             ->assertJsonPath('data.descuento_lineas', '10.00')
             ->assertJsonPath('data.descuento_global', '5.00')
-            ->assertJsonPath('data.base_neta', '1285.01');
+            ->assertJsonPath('data.base_neta', '1275.00');
+        $payload['servicios_pedido'][0]['descuento'] = 20;
+        $preview = $this->postJson('/api/v1/proformas/calcular', $payload)->assertOk();
+        $preview->assertJsonPath('data.servicios_pedido.0.desglose.1.monto', '40.00')
+            ->assertJsonPath('data.servicios_pedido.0.subtotal', '170.00')
+            ->assertJsonPath('data.values.subtotal_bruto', '1290.00')
+            ->assertJsonPath('data.values.descuento_lineas', '20.00')
+            ->assertJsonPath('data.values.descuento_global', '5.00')
+            ->assertJsonPath('data.values.base_neta', '1265.00');
         $this->assertDatabaseCount('proforma_servicio_desgloses', 4);
-        $this->assertDatabaseHas('proforma_servicios', ['subtotal' => '190.01', 'precio_unitario' => '66.67']);
+        $this->assertDatabaseHas('proforma_servicios', ['subtotal' => '180.00', 'precio_unitario' => '63.33']);
         $this->get("/api/v1/proformas/{$response->json('data.id')}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
 

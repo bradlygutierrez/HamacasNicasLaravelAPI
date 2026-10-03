@@ -87,27 +87,19 @@ class ProformaPricingService
             return [$price, $gross, DecimalMoney::sub($gross, $discount), []];
         }
 
-        $subtotal = '0.00';
+        $gross = '0.00';
         $breakdown = [];
         foreach ($rows as $index => $row) {
             $amount = DecimalMoney::add((string) $row['monto'], '0');
-            $subtotal = DecimalMoney::add($subtotal, $amount);
+            $gross = DecimalMoney::add($gross, $amount);
             $breakdown[] = ['descripcion' => trim((string) $row['descripcion']), 'monto' => $amount, 'orden' => (int) ($row['orden'] ?? $index + 1)];
         }
         usort($breakdown, fn (array $a, array $b): int => $a['orden'] <=> $b['orden']);
 
-        $gross = DecimalMoney::add($subtotal, $discount);
         $price = DecimalMoney::div($gross, $quantity);
-        $computedGross = DecimalMoney::mul($quantity, $price);
-        $computedSubtotal = DecimalMoney::sub($computedGross, $discount);
-        if (DecimalMoney::compare($computedSubtotal, $subtotal) !== 0) {
-            $lastIndex = array_key_last($breakdown);
-            $breakdown[$lastIndex]['monto'] = DecimalMoney::add($breakdown[$lastIndex]['monto'], DecimalMoney::sub($computedSubtotal, $subtotal));
-            if (DecimalMoney::compare($breakdown[$lastIndex]['monto'], '0') < 0) throw new BusinessRuleException('El redondeo del desglose no puede generar un concepto negativo.', [], 422);
-            $subtotal = DecimalMoney::add($subtotal, DecimalMoney::sub($computedSubtotal, $subtotal));
-        }
+        $subtotal = DecimalMoney::sub($gross, $discount);
 
-        return [$price, $computedGross, $subtotal, $breakdown];
+        return [$price, $gross, $subtotal, $breakdown];
     }
     private function assertDiscount(string $discount, string $gross, string $message): void { if (DecimalMoney::compare($discount, '0') < 0 || DecimalMoney::compare($discount, $gross) > 0) throw new BusinessRuleException($message, [], 422); }
     private function materialSnapshot($material, string $base, string $factor, $override, string $origin, $originId): array { $waste = $override === null ? (string) $material->porcentaje_merma : (string) $override; $content = (string) $material->contenido_por_compra; $unit = DecimalMoney::div((string) $material->precio_actual, $content, 6); $totalQty = DecimalMoney::mul(DecimalMoney::mul($base, DecimalMoney::add('1', DecimalMoney::div($waste, '100', 6), 6), 4), $factor, 4); return ['origen_tipo' => $origin, 'origen_id' => $originId, 'material_id' => $material->id, 'material_nombre_snapshot' => $material->nombre, 'unidad_consumo_snapshot' => $material->unidad_consumo, 'unidad_compra_snapshot' => $material->unidad_compra, 'cantidad_base_unitaria' => $base, 'factor_cantidad' => $factor, 'porcentaje_merma' => $waste, 'cantidad_total_con_merma' => $totalQty, 'contenido_por_compra_snapshot' => $content, 'precio_compra_snapshot' => (string) $material->precio_actual, 'costo_unidad_consumo_snapshot' => $unit, 'costo_consumo_total' => DecimalMoney::mul($totalQty, $unit)]; }
