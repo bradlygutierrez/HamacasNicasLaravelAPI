@@ -88,6 +88,15 @@ class ProformaApiTest extends TestCase
             ->assertJsonPath('data.values.descuento_lineas', '20.00')
             ->assertJsonPath('data.values.descuento_global', '5.00')
             ->assertJsonPath('data.values.base_neta', '1265.00');
+        $payload['servicios_pedido'][0]['descuento'] = 190;
+        $maximumDiscountPreview = $this->postJson('/api/v1/proformas/calcular', $payload)->assertOk();
+        $maximumDiscountPreview->assertJsonPath('data.servicios_pedido.0.subtotal', '0.00')
+            ->assertJsonPath('data.values.subtotal_bruto', '1290.00')
+            ->assertJsonPath('data.values.descuento_lineas', '190.00')
+            ->assertJsonPath('data.values.descuento_global', '5.00')
+            ->assertJsonPath('data.values.base_neta', '1095.00');
+        $payload['servicios_pedido'][0]['descuento'] = 190.01;
+        $this->postJson('/api/v1/proformas/calcular', $payload)->assertUnprocessable();
         $this->assertDatabaseCount('proforma_servicio_desgloses', 4);
         $this->assertDatabaseHas('proforma_servicios', ['subtotal' => '180.00', 'precio_unitario' => '63.33']);
         $this->get("/api/v1/proformas/{$response->json('data.id')}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');

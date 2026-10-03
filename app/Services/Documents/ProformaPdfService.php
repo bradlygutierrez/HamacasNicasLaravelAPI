@@ -56,6 +56,6 @@ class ProformaPdfService
 
     private function serviceLine($service): array
     {
-        return ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'discount' => $service->descuento, 'subtotal' => $service->subtotal];
+        return ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'has_breakdown' => $service->desglose->isNotEmpty(), 'discount' => $service->descuento, 'subtotal' => $service->subtotal];
     }
 }

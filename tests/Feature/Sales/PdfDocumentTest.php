@@ -192,6 +192,8 @@ class PdfDocumentTest extends TestCase
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
         $this->assertSame('Orilla de lujo', $model['details'][0]['services'][0]['name']);
         $this->assertSame('45.00', (string) $model['details'][0]['services'][0]['subtotal']);
+        $this->assertTrue($model['details'][0]['services'][0]['has_breakdown']);
+        $this->assertStringContainsString('Aprox.', view('pdf.proforma.document', $model)->render());
         $this->assertCount(1, $model['serviceBreakdowns']);
         $this->assertSame('Trabajo de orilla', $model['serviceBreakdowns'][0]['rows'][0]->descripcion);
     }
