@@ -26,7 +26,7 @@ class DetalleFacturaResource extends JsonResource
             'subtotal' => $this->subtotal,
             'descuento' => $this->descuento,
             'colores' => $this->colores_snapshot ? json_decode($this->colores_snapshot, true) : [],
-            'servicios' => $this->whenLoaded('servicios', fn () => $this->servicios->map(fn ($service) => ['id' => $service->id, 'nombre' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal])),
+            'servicios' => $this->whenLoaded('servicios', fn () => $this->servicios->map(fn ($service) => ['id' => $service->id, 'nombre' => $service->servicio_nombre_snapshot, 'detalle' => $service->detalle, 'cantidad' => $service->cantidad, 'precio_unitario' => $service->precio_unitario, 'precio_unitario_aproximado' => $service->pedidoDetalleServicio?->proformaDetalleServicio?->desglose?->isNotEmpty() ?? false, 'descuento' => $service->descuento, 'subtotal' => $service->subtotal])),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
