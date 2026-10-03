@@ -191,9 +191,19 @@ class PdfDocumentTest extends TestCase
         $service->desglose()->create(['descripcion' => 'Trabajo de orilla', 'monto' => 45, 'orden' => 1]);
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
         $this->assertSame('Orilla de lujo', $model['details'][0]['services'][0]['name']);
+        $this->assertSame([], $model['details'][0]['colors']);
         $this->assertSame('45.00', (string) $model['details'][0]['services'][0]['subtotal']);
         $this->assertTrue($model['details'][0]['services'][0]['has_breakdown']);
-        $this->assertStringContainsString('Aprox.', view('pdf.proforma.document', $model)->render());
+        $html = view('pdf.proforma.document', $model)->render();
+        $this->assertStringContainsString('Aprox.', $html);
+        $this->assertStringContainsString('PROFORMA DE PEDIDO', $html);
+        $this->assertStringContainsString('Vendedor', $html);
+        $this->assertStringContainsString('Cliente', $html);
+        $this->assertStringContainsString('Precio unit.', $html);
+        $this->assertStringContainsString('Descuento', $html);
+        $this->assertStringContainsString('Precio total', $html);
+        $this->assertStringContainsString('Descuentos por líneas', $html);
+        $this->assertStringContainsString('Descuento global', $html);
         $this->assertCount(1, $model['serviceBreakdowns']);
         $this->assertSame('Trabajo de orilla', $model['serviceBreakdowns'][0]['rows'][0]->descripcion);
     }

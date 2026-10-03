@@ -1,19 +1,149 @@
 @extends('pdf.layouts.document')
-@php($money = fn ($value) => ($currency ?? 'C$') . ' ' . number_format((float) $value, 2))
+@php
+    $money = fn ($value) => ($currency ?? 'C$') . ' ' . number_format((float) $value, 2);
+    $productSubtotal = collect($details)->sum('subtotal');
+@endphp
 @section('content')
-    @section('document-heading')<div class="blue" style="font-size:15px; font-weight:bold;">PROFORMA DE PEDIDO</div>@endsection
-    @section('document-meta')<div>Proforma<br><strong>{{ $number }}</strong><br><br>Fecha<br><strong>{{ $dateFormatted ?? '—' }}</strong></div>@endsection
-    @include('pdf.partials.company-header')
-    @if($isDraft) <div style="border:1px solid #9aa8b1; color:#63717a; display:inline-block; padding:3px 7px; font-size:8px; letter-spacing:.5px;">BORRADOR</div> @endif
-    <table style="margin-top:12px;" class="avoid-break"><tr><td style="width:55%; vertical-align:top;"><strong class="blue">{{ $company['nombre'] }}</strong><br>{{ $company['ruc'] ?? '' }}<br>{{ $company['direccion'] ?? '' }}<br>{{ $company['ciudad'] ?? '' }} {{ $company['pais'] ?? '' }}</td><td style="vertical-align:top;"><strong class="blue">CLIENTE</strong><br>{{ $proforma->nombre_cliente }}<br>{{ $proforma->ruc ?? '' }}<br>{{ $proforma->telefono ?? '' }} · {{ $proforma->correo ?? '' }}<br>{{ $proforma->direccion ?? '' }}</td></tr></table>
-    <h2 class="section-title">Detalle</h2>
-    <table class="pdf-table"><thead><tr style="background:#f4f4f4; color:#002060;"><th style="padding:7px; text-align:left;">Cant.</th><th style="padding:7px; text-align:left;">Descripción</th><th style="padding:7px; text-align:right;">Precio unit.</th><th style="padding:7px; text-align:right;">Descuento</th><th style="padding:7px; text-align:right;">Total</th></tr></thead><tbody>
-        @foreach($details as $detail)<tr class="item-row"><td style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $detail['quantity'] }}</td><td style="padding:7px; border-bottom:1px solid #d9e0e4;"><strong>{{ $detail['name'] }}</strong>@if(!empty($detail['description']))<br><span class="muted">{{ $detail['description'] }}</span>@endif</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $money($detail['unit_price']) }}</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $money($detail['discount']) }}</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $money($detail['subtotal']) }}</td></tr>@foreach($detail['services'] as $service)<tr class="item-row"><td style="padding:4px 7px 4px 20px; border-bottom:1px solid #d9e0e4;">{{ $service['quantity'] }}</td><td style="padding:4px 7px; border-bottom:1px solid #d9e0e4;"><span class="muted">↳ {{ $service['name'] }}@if($service['detail']) · {{ $service['detail'] }} @endif</span></td><td class="amount" style="padding:4px 7px; border-bottom:1px solid #d9e0e4;">@if(!empty($service['has_breakdown']))Aprox. @endif{{ $money($service['unit_price']) }}</td><td class="amount" style="padding:4px 7px; border-bottom:1px solid #d9e0e4;">{{ $money($service['discount']) }}</td><td class="amount" style="padding:4px 7px; border-bottom:1px solid #d9e0e4;">{{ $money($service['subtotal']) }}</td></tr>@endforeach @endforeach
-        @foreach($proforma->servicios as $service)<tr class="item-row"><td style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $service->cantidad }}</td><td style="padding:7px; border-bottom:1px solid #d9e0e4;"><strong>{{ $service->servicio_nombre_snapshot }}</strong>@if($service->detalle)<br><span class="muted">{{ $service->detalle }}</span>@endif</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">@if($service->desglose->isNotEmpty())Aprox. @endif{{ $money($service->precio_unitario) }}</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $money($service->descuento) }}</td><td class="amount" style="padding:7px; border-bottom:1px solid #d9e0e4;">{{ $money($service->subtotal) }}</td></tr>@endforeach
-    </tbody></table>
-    @foreach($serviceBreakdowns as $breakdown)<h2 class="section-title">DESGLOSE – {{ $breakdown['name'] }}</h2><table class="pdf-table avoid-break"><thead><tr style="background:#f4f4f4; color:#002060;"><th style="padding:6px; text-align:left;">Descripción</th><th style="padding:6px; text-align:right;">Valor</th></tr></thead><tbody>@foreach($breakdown['rows'] as $row)<tr><td style="padding:5px 6px; border-bottom:1px solid #d9e0e4;">{{ $row->descripcion }}</td><td class="amount" style="padding:5px 6px; border-bottom:1px solid #d9e0e4;">{{ $money($row->monto) }}</td></tr>@endforeach<tr class="total-row"><td style="font-size:10px;">Total</td><td class="amount" style="font-size:10px;">{{ $money($breakdown['rows']->sum('monto')) }}</td></tr></tbody></table>@endforeach
-    <table class="totals"><tr><td>Subtotal bruto</td><td class="amount">{{ $money($proforma->subtotal_bruto) }}</td></tr><tr><td>Descuentos por líneas</td><td class="amount">- {{ $money($proforma->descuento_lineas ?? 0) }}</td></tr><tr><td>Descuento global</td><td class="amount">- {{ $money($proforma->descuento_global ?? $proforma->descuento_total ?? $proforma->descuento ?? 0) }}</td></tr><tr><td>Base neta</td><td class="amount">{{ $money($proforma->base_neta) }}</td></tr>@if($proforma->aplica_iva)<tr><td>IVA</td><td class="amount">{{ $money($proforma->monto_iva) }}</td></tr>@endif @if($proforma->aplica_ir)<tr><td>IR</td><td class="amount">- {{ $money(abs($proforma->monto_ir)) }}</td></tr>@endif<tr class="total-row"><td>TOTAL</td><td class="amount">{{ $money($proforma->total) }}</td></tr></table>
-    @if($proforma->valida_hasta || $paymentConditions || $proforma->observaciones)<h2 class="section-title">Condiciones y observaciones</h2><div class="avoid-break">@if($proforma->valida_hasta)<p>Esta proforma es válida hasta el {{ $proforma->valida_hasta->format('d/m/Y') }}.</p>@endif @if($paymentConditions)<p>{{ $paymentConditions }}</p>@endif @if($proforma->observaciones)<p><strong>Observaciones:</strong> {{ $proforma->observaciones }}</p>@endif</div>@endif
-    @include('pdf.partials.footer')
+    <table class="proforma-brandbar">
+        <tr>
+            <td class="brand-logo">
+                @if(!empty($company['logo']))
+                    <img src="{{ $company['logo'] }}" style="max-width:180px; max-height:56px;">
+                @else
+                    <strong>{{ $company['nombre'] }}</strong>
+                @endif
+            </td>
+            <td class="brand-contact">
+                @if(!empty($company['web']))<span>{{ $company['web'] }}</span>@endif
+                @if(!empty($company['facebook']))<span>{{ $company['facebook'] }}</span>@endif
+                @if(!empty($company['correo']))<span>{{ $company['correo'] }}</span>@endif
+                @if(!empty($company['instagram']) || !empty($company['youtube']))
+                    <span>También estamos en: {{ $company['instagram'] ?? '' }} @if(!empty($company['youtube'])) · {{ $company['youtube'] }}@endif</span>
+                @endif
+            </td>
+        </tr>
+    </table>
+
+    <table class="proforma-title">
+        <tr>
+            <td>
+                <h1>PROFORMA DE PEDIDO</h1>
+                <div>{{ $dateFormatted ?? '—' }}</div>
+            </td>
+            <td class="proforma-number">
+                @if($isDraft)<span class="draft-badge">BORRADOR</span>@endif
+                <span>Proforma</span>
+                <strong>{{ $number }}</strong>
+            </td>
+        </tr>
+    </table>
+
+    <table class="parties avoid-break">
+        <tr>
+            <td>
+                <div class="party-label">Vendedor</div>
+                <strong>{{ $company['nombre'] }}</strong>
+                @if(!empty($company['ruc']))<div>RUC# {{ $company['ruc'] }}</div>@endif
+                @if(!empty($company['direccion']))<div>{{ $company['direccion'] }}</div>@endif
+                @if(!empty($company['ciudad']) || !empty($company['pais']))<div>{{ $company['ciudad'] ?? '' }}{{ !empty($company['ciudad']) && !empty($company['pais']) ? ', ' : '' }}{{ $company['pais'] ?? '' }}</div>@endif
+            </td>
+            <td>
+                <div class="party-label">Cliente</div>
+                <strong>{{ $proforma->nombre_cliente }}</strong>
+                @if($proforma->ruc)<div>RUC# {{ $proforma->ruc }}</div>@endif
+                @if($proforma->direccion)<div>{{ $proforma->direccion }}</div>@endif
+                @if($proforma->telefono || $proforma->correo)<div>{{ $proforma->telefono }}@if($proforma->telefono && $proforma->correo) · @endif{{ $proforma->correo }}</div>@endif
+            </td>
+        </tr>
+    </table>
+
+    <table class="commercial-table">
+        <thead>
+            <tr>
+                <th class="qty">Cantidad</th>
+                <th>Descripción</th>
+                <th class="color">Color</th>
+                <th class="money">Precio unit.</th>
+                <th class="money">Descuento</th>
+                <th class="money">Precio total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($details as $detail)
+                <tr class="product-row">
+                    <td class="qty">{{ $detail['quantity'] }}</td>
+                    <td>
+                        <strong>{{ $detail['name'] }}</strong>
+                        @if(!empty($detail['description']))<div class="item-description">{{ $detail['description'] }}</div>@endif
+                    </td>
+                    <td class="color">{{ !empty($detail['colors']) ? implode(' / ', $detail['colors']) : '—' }}</td>
+                    <td class="money">{{ $money($detail['unit_price']) }}</td>
+                    <td class="money">{{ $money($detail['discount']) }}</td>
+                    <td class="money">{{ $money($detail['subtotal']) }}</td>
+                </tr>
+                @foreach($detail['services'] as $service)
+                    <tr class="service-row">
+                        <td class="qty">{{ $service['quantity'] }}</td>
+                        <td><span class="service-mark">↳</span> {{ $service['name'] }}@if($service['detail'])<div class="item-description">{{ $service['detail'] }}</div>@endif</td>
+                        <td class="color">—</td>
+                        <td class="money">@if(!empty($service['has_breakdown']))<span class="approx">Aprox. </span>@endif{{ $money($service['unit_price']) }}</td>
+                        <td class="money">{{ $money($service['discount']) }}</td>
+                        <td class="money">{{ $money($service['subtotal']) }}</td>
+                    </tr>
+                @endforeach
+            @endforeach
+            @foreach($proforma->servicios as $service)
+                <tr class="product-row">
+                    <td class="qty">{{ $service->cantidad }}</td>
+                    <td><strong>{{ $service->servicio_nombre_snapshot }}</strong>@if($service->detalle)<div class="item-description">{{ $service->detalle }}</div>@endif</td>
+                    <td class="color">—</td>
+                    <td class="money">@if($service->desglose->isNotEmpty())<span class="approx">Aprox. </span>@endif{{ $money($service->precio_unitario) }}</td>
+                    <td class="money">{{ $money($service->descuento) }}</td>
+                    <td class="money">{{ $money($service->subtotal) }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    <div class="goods-total"><span>Total productos</span><strong>{{ $money($productSubtotal) }}</strong></div>
+
+    @foreach($serviceBreakdowns as $breakdown)
+        <h2 class="proforma-section-title">DESGLOSE – {{ $breakdown['name'] }}</h2>
+        <table class="breakdown-table avoid-break">
+            <thead><tr><th>Descripción</th><th class="money">Valor</th></tr></thead>
+            <tbody>
+                @foreach($breakdown['rows'] as $row)
+                    <tr><td>{{ $row->descripcion }}</td><td class="money">{{ $money($row->monto) }}</td></tr>
+                @endforeach
+                <tr class="breakdown-total"><td>Total</td><td class="money">{{ $money($breakdown['rows']->sum('monto')) }}</td></tr>
+            </tbody>
+        </table>
+    @endforeach
+
+    <table class="summary-layout">
+        <tr>
+            <td class="terms">
+                @if($proforma->valida_hasta)<p>* Esta proforma es válida hasta el {{ $proforma->valida_hasta->format('d/m/Y') }}.</p>@endif
+                @if($paymentConditions)<p>{{ $paymentConditions }}</p>@endif
+                @if($proforma->observaciones)<p><strong>Observaciones:</strong> {{ $proforma->observaciones }}</p>@endif
+                @if(!empty($company['telefono']) || !empty($company['correo']))
+                    <p class="contact-prompt">Si tiene alguna duda, contáctenos:<br>{{ $company['correo'] ?? '' }} @if(!empty($company['correo']) && !empty($company['telefono'])) · @endif {{ $company['telefono'] ?? '' }}</p>
+                @endif
+            </td>
+            <td>
+                <table class="totals proforma-totals">
+                    <tr><td>Subtotal bruto</td><td class="money">{{ $money($proforma->subtotal_bruto) }}</td></tr>
+                    <tr><td>Descuentos por líneas</td><td class="money">- {{ $money($proforma->descuento_lineas ?? 0) }}</td></tr>
+                    <tr><td>Descuento global</td><td class="money">- {{ $money($proforma->descuento_global ?? $proforma->descuento_total ?? $proforma->descuento ?? 0) }}</td></tr>
+                    <tr class="net-total"><td>Base neta</td><td class="money">{{ $money($proforma->base_neta) }}</td></tr>
+                    @if($proforma->aplica_iva)<tr><td>IVA</td><td class="money">{{ $money($proforma->monto_iva) }}</td></tr>@endif
+                    @if($proforma->aplica_ir)<tr><td>IR</td><td class="money">- {{ $money(abs($proforma->monto_ir)) }}</td></tr>@endif
+                    <tr class="grand-total"><td>TOTAL</td><td class="money">{{ $money($proforma->total) }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="document-footer">{{ $company['web'] ?? '' }} @if(!empty($company['web']) && !empty($company['correo'])) · @endif {{ $company['correo'] ?? '' }} @if(!empty($company['telefono'])) · {{ $company['telefono'] }}@endif</div>
     @foreach($sheets as $sheet)<div class="page-break">@include('pdf.proforma.product-sheet', ['sheet' => $sheet])</div>@endforeach
 @endsection

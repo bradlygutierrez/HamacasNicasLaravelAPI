@@ -22,6 +22,7 @@ class ProformaPdfService
             'quantity' => $detail->cantidad,
             'name' => $detail->hamaca_nombre_snapshot,
             'description' => $detail->hamaca_descripcion_snapshot,
+            'colors' => $detail->hamaca?->colores?->pluck('nombre')->all() ?? [],
             'unit_price' => $detail->precio_unitario,
             'discount' => $detail->descuento,
             'subtotal' => $detail->subtotal,
