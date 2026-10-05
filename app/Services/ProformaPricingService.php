@@ -68,7 +68,14 @@ class ProformaPricingService
         $payload = ['descuento_global' => $proforma->descuento_global ?? $proforma->descuento ?? '0', 'aplica_iva' => $proforma->aplica_iva, 'tasa_iva' => $proforma->tasa_iva, 'aplica_ir' => $proforma->aplica_ir, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'detalles' => [], 'servicios_pedido' => []];
         foreach ($proforma->detalles as $detail) $payload['detalles'][] = ['hamaca_id' => $detail->hamaca_id, 'cantidad' => $detail->cantidad, 'precio_unitario' => $detail->precio_unitario, 'descuento' => $detail->descuento, 'servicios' => $detail->servicios->map(fn ($s) => ['servicio_adicional_id' => $s->servicio_adicional_id, 'cantidad' => $s->cantidad, 'detalle' => $s->detalle, 'precio_unitario' => $s->precio_unitario, 'descuento' => $s->descuento, 'desglose' => $s->desglose->map(fn ($row) => $row->only(['descripcion', 'monto', 'orden']))->all(), 'costo_base_unitario_override' => $s->costo_base_unitario_override])->all()];
         foreach ($proforma->servicios as $service) $payload['servicios_pedido'][] = ['servicio_adicional_id' => $service->servicio_adicional_id, 'cantidad' => $service->cantidad, 'detalle' => $service->detalle, 'precio_unitario' => $service->precio_unitario, 'descuento' => $service->descuento, 'desglose' => $service->desglose->map(fn ($row) => $row->only(['descripcion', 'monto', 'orden']))->all(), 'costo_base_unitario_override' => $service->costo_base_unitario_override];
-        return $this->calculatePayload($payload, $user, ['tasa_iva' => $proforma->tasa_iva, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'service_overrides' => $proforma->servicios->mapWithKeys(fn ($service) => [(string) $service->servicio_adicional_id => $service->costo_base_unitario_override])->all()]);
+        $calculated = $this->calculatePayload($payload, $user, ['tasa_iva' => $proforma->tasa_iva, 'tasa_ir' => $proforma->tasa_ir, 'tasa_comision_vendedor' => $proforma->tasa_comision_vendedor, 'service_overrides' => $proforma->servicios->mapWithKeys(fn ($service) => [(string) $service->servicio_adicional_id => $service->costo_base_unitario_override])->all()]);
+        foreach ($proforma->detalles->values() as $index => $detail) {
+            if ($detail->colores_snapshot !== null && isset($calculated['details'][$index])) {
+                $calculated['details'][$index]['colores_snapshot'] = $detail->colores_snapshot;
+            }
+        }
+
+        return $calculated;
     }
 
     public function materialPurchaseBreakdown(array $snapshots): array

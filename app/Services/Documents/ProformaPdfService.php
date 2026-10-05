@@ -22,7 +22,7 @@ class ProformaPdfService
             'quantity' => $detail->cantidad,
             'name' => $detail->hamaca_nombre_snapshot,
             'description' => $detail->hamaca_descripcion_snapshot,
-            'colors' => $detail->hamaca?->colores?->pluck('nombre')->all() ?? [],
+            'colors' => $this->colorsForDetail($detail),
             'unit_price' => $detail->precio_unitario,
             'discount' => $detail->descuento,
             'subtotal' => $detail->subtotal,
@@ -37,7 +37,7 @@ class ProformaPdfService
             $resolvedPhotos = $this->images->resolveMany($detail->hamaca?->fotos?->sortBy('id') ?? collect());
             $sheets[] = [
                 'name' => $detail->hamaca_nombre_snapshot,
-                'colors' => $detail->hamaca?->colores?->pluck('nombre')->all() ?? [],
+                'colors' => $this->colorsForDetail($detail),
                 'category' => $detail->hamaca?->categoria?->nombre,
                 'size' => $detail->hamaca?->tamano?->nombre,
                 'quantity' => $group->sum('cantidad'),
@@ -58,5 +58,10 @@ class ProformaPdfService
     private function serviceLine($service): array
     {
         return ['name' => $service->servicio_nombre_snapshot, 'detail' => $service->detalle, 'quantity' => $service->cantidad, 'unit_price' => $service->precio_unitario, 'has_breakdown' => $service->desglose->isNotEmpty(), 'discount' => $service->descuento, 'subtotal' => $service->subtotal];
+    }
+
+    private function colorsForDetail($detail): array
+    {
+        return $detail->colores_snapshot ?? $detail->hamaca?->colores?->pluck('nombre')->values()->all() ?? [];
     }
 }

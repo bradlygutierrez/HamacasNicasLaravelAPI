@@ -208,6 +208,39 @@ class PdfDocumentTest extends TestCase
         $this->assertSame('Trabajo de orilla', $model['serviceBreakdowns'][0]['rows'][0]->descripcion);
     }
 
+    public function test_historical_proforma_without_color_snapshot_falls_back_to_current_colors(): void
+    {
+        $vendor = $this->userWithRole('vendedor');
+        $catalog = $this->catalogFixture(['Rojo']);
+        $proforma = $this->proforma($vendor, 'PRO-' . uniqid());
+        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Producto legado', 'cantidad' => 1, 'precio_unitario' => 100, 'subtotal' => 100]);
+
+        $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
+
+        $expectedColor = \App\Models\Color::findOrFail($catalog['color_ids'][0])->nombre;
+        $this->assertSame([$expectedColor], $model['details'][0]['colors']);
+        $this->assertStringContainsString('Producto legado', view('pdf.proforma.document', $model)->render());
+    }
+
+    public function test_proforma_breakdowns_render_after_summary_and_start_on_a_new_page(): void
+    {
+        $template = file_get_contents(resource_path('views/pdf/proforma/document.blade.php'));
+        $summary = strpos($template, '<table class="summary-layout">');
+        $footer = strpos($template, '<div class="document-footer">');
+        $breakdown = strpos($template, '@foreach($serviceBreakdowns as $breakdown)');
+        $sheets = strpos($template, '@foreach($sheets as $sheet)');
+        $breakdownPage = strrpos(substr($template, 0, $breakdown), '<div class="page-break">');
+
+        $this->assertNotFalse($summary);
+        $this->assertNotFalse($footer);
+        $this->assertNotFalse($breakdown);
+        $this->assertNotFalse($sheets);
+        $this->assertNotFalse($breakdownPage);
+        $this->assertLessThan($footer, $summary);
+        $this->assertLessThan($breakdown, $footer);
+        $this->assertLessThan($sheets, $breakdown);
+    }
+
     private function proforma(Usuario $vendor, ?string $number): Proforma
     {
         return Proforma::create(['numero' => $number, 'vendedor_id' => $vendor->id, 'estado' => $number ? 'emitida' : 'borrador', 'nombre_cliente' => 'Cliente proforma', 'fecha' => now()->toDateString(), 'valida_hasta' => now()->addDays(10)->toDateString(), 'subtotal_bruto' => 1400, 'base_neta' => 1400, 'total' => 1400]);

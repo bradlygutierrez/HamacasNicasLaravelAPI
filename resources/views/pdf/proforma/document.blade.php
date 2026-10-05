@@ -107,19 +107,6 @@
 
     <div class="goods-total"><span>Total productos</span><strong>{{ $money($productSubtotal) }}</strong></div>
 
-    @foreach($serviceBreakdowns as $breakdown)
-        <h2 class="proforma-section-title">DESGLOSE – {{ $breakdown['name'] }}</h2>
-        <table class="breakdown-table avoid-break">
-            <thead><tr><th>Descripción</th><th class="money">Valor</th></tr></thead>
-            <tbody>
-                @foreach($breakdown['rows'] as $row)
-                    <tr><td>{{ $row->descripcion }}</td><td class="money">{{ $money($row->monto) }}</td></tr>
-                @endforeach
-                <tr class="breakdown-total"><td>Total</td><td class="money">{{ $money($breakdown['rows']->sum('monto')) }}</td></tr>
-            </tbody>
-        </table>
-    @endforeach
-
     <table class="summary-layout">
         <tr>
             <td class="terms">
@@ -145,5 +132,23 @@
     </table>
 
     <div class="document-footer">{{ $company['web'] ?? '' }} @if(!empty($company['web']) && !empty($company['correo'])) · @endif {{ $company['correo'] ?? '' }} @if(!empty($company['telefono'])) · {{ $company['telefono'] }}@endif</div>
+
+    @if(count($serviceBreakdowns))
+        <div class="page-break">
+            @foreach($serviceBreakdowns as $breakdown)
+                <h2 class="proforma-section-title">DESGLOSE – {{ $breakdown['name'] }}</h2>
+                <table class="breakdown-table avoid-break">
+                    <thead><tr><th>Descripción</th><th class="money">Valor</th></tr></thead>
+                    <tbody>
+                        @foreach($breakdown['rows'] as $row)
+                            <tr><td>{{ $row->descripcion }}</td><td class="money">{{ $money($row->monto) }}</td></tr>
+                        @endforeach
+                        <tr class="breakdown-total"><td>Total</td><td class="money">{{ $money($breakdown['rows']->sum('monto')) }}</td></tr>
+                    </tbody>
+                </table>
+            @endforeach
+        </div>
+    @endif
+
     @foreach($sheets as $sheet)<div class="page-break">@include('pdf.proforma.product-sheet', ['sheet' => $sheet])</div>@endforeach
 @endsection
