@@ -191,11 +191,54 @@ class PdfDocumentTest extends TestCase
         $service->desglose()->create(['descripcion' => 'Trabajo de orilla', 'monto' => 45, 'orden' => 1]);
         $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
         $this->assertSame('Orilla de lujo', $model['details'][0]['services'][0]['name']);
+        $this->assertSame([], $model['details'][0]['colors']);
         $this->assertSame('45.00', (string) $model['details'][0]['services'][0]['subtotal']);
         $this->assertTrue($model['details'][0]['services'][0]['has_breakdown']);
-        $this->assertStringContainsString('Aprox.', view('pdf.proforma.document', $model)->render());
+        $html = view('pdf.proforma.document', $model)->render();
+        $this->assertStringContainsString('Aprox.', $html);
+        $this->assertStringContainsString('PROFORMA DE PEDIDO', $html);
+        $this->assertStringContainsString('Vendedor', $html);
+        $this->assertStringContainsString('Cliente', $html);
+        $this->assertStringContainsString('Precio unit.', $html);
+        $this->assertStringContainsString('Descuento', $html);
+        $this->assertStringContainsString('Precio total', $html);
+        $this->assertStringContainsString('Descuentos por líneas', $html);
+        $this->assertStringContainsString('Descuento global', $html);
         $this->assertCount(1, $model['serviceBreakdowns']);
         $this->assertSame('Trabajo de orilla', $model['serviceBreakdowns'][0]['rows'][0]->descripcion);
+    }
+
+    public function test_historical_proforma_without_color_snapshot_falls_back_to_current_colors(): void
+    {
+        $vendor = $this->userWithRole('vendedor');
+        $catalog = $this->catalogFixture(['Rojo']);
+        $proforma = $this->proforma($vendor, 'PRO-' . uniqid());
+        ProformaDetalle::create(['proforma_id' => $proforma->id, 'hamaca_id' => $catalog['hamaca_id'], 'receta_version_snapshot' => 1, 'hamaca_nombre_snapshot' => 'Producto legado', 'cantidad' => 1, 'precio_unitario' => 100, 'subtotal' => 100]);
+
+        $model = app(ProformaPdfService::class)->viewModel($proforma->fresh());
+
+        $expectedColor = \App\Models\Color::findOrFail($catalog['color_ids'][0])->nombre;
+        $this->assertSame([$expectedColor], $model['details'][0]['colors']);
+        $this->assertStringContainsString('Producto legado', view('pdf.proforma.document', $model)->render());
+    }
+
+    public function test_proforma_breakdowns_render_after_summary_and_start_on_a_new_page(): void
+    {
+        $template = file_get_contents(resource_path('views/pdf/proforma/document.blade.php'));
+        $summary = strpos($template, '<table class="summary-layout">');
+        $footer = strpos($template, '<div class="document-footer">');
+        $breakdown = strpos($template, '@foreach($serviceBreakdowns as $breakdown)');
+        $sheets = strpos($template, '@foreach($sheets as $sheet)');
+        $breakdownPage = strrpos(substr($template, 0, $breakdown), '<div class="page-break">');
+
+        $this->assertNotFalse($summary);
+        $this->assertNotFalse($footer);
+        $this->assertNotFalse($breakdown);
+        $this->assertNotFalse($sheets);
+        $this->assertNotFalse($breakdownPage);
+        $this->assertLessThan($footer, $summary);
+        $this->assertLessThan($breakdown, $footer);
+        $this->assertLessThan($sheets, $breakdown);
     }
 
     private function proforma(Usuario $vendor, ?string $number): Proforma

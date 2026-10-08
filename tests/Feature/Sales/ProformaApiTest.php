@@ -71,6 +71,7 @@ class ProformaApiTest extends TestCase
         ]];
         $payload['descuento_global'] = 5;
 
+        $existingBreakdowns = DB::table('proforma_servicio_desgloses')->count();
         $response = $this->postJson('/api/v1/proformas', $payload)->assertCreated();
         $response->assertJsonPath('data.detalles.0.servicios.0.desglose.0.descripcion', 'Protección')
             ->assertJsonPath('data.servicios_pedido.0.desglose.1.monto', '40.00')
@@ -97,7 +98,7 @@ class ProformaApiTest extends TestCase
             ->assertJsonPath('data.values.base_neta', '1095.00');
         $payload['servicios_pedido'][0]['descuento'] = 190.01;
         $this->postJson('/api/v1/proformas/calcular', $payload)->assertUnprocessable();
-        $this->assertDatabaseCount('proforma_servicio_desgloses', 4);
+        $this->assertSame($existingBreakdowns + 4, DB::table('proforma_servicio_desgloses')->count());
         $this->assertDatabaseHas('proforma_servicios', ['subtotal' => '180.00', 'precio_unitario' => '63.33']);
         $this->get("/api/v1/proformas/{$response->json('data.id')}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
@@ -152,6 +153,28 @@ class ProformaApiTest extends TestCase
             ->assertJsonPath('data.detalles.0.hamaca.id', $hamaca->id)
             ->assertJsonPath('data.detalles.0.hamaca.nombre', $hamaca->nombre)
             ->assertJsonPath('data.detalles.0.hamaca.colores.0.nombre', DB::table('colores')->where('id', $colorId)->value('nombre'));
+    }
+
+    public function test_emitted_proforma_pdf_keeps_color_names_from_creation_snapshot(): void
+    {
+        $admin = $this->user('admin');
+        $hamaca = $this->hamacaWithRecipe();
+        $colorId = DB::table('colores')->insertGetId(['nombre' => 'Azul original', 'created_at' => now(), 'updated_at' => now()]);
+        $hamaca->colores()->sync([$colorId]);
+        Sanctum::actingAs($admin);
+
+        $id = $this->postJson('/api/v1/proformas', $this->payload($hamaca, $admin->id))->assertCreated()->json('data.id');
+        $this->postJson("/api/v1/proformas/{$id}/emitir")->assertOk();
+        $detail = ProformaDetalle::where('proforma_id', $id)->firstOrFail();
+        $this->assertSame(['Azul original'], $detail->colores_snapshot);
+
+        $newColorId = DB::table('colores')->insertGetId(['nombre' => 'Verde actualizado', 'created_at' => now(), 'updated_at' => now()]);
+        $hamaca->colores()->sync([$newColorId]);
+        $pdfModel = app(\App\Services\Documents\ProformaPdfService::class)->viewModel(Proforma::findOrFail($id));
+
+        $this->assertSame(['Azul original'], $pdfModel['details'][0]['colors']);
+        $this->assertStringContainsString('Azul original', view('pdf.proforma.document', $pdfModel)->render());
+        $this->assertStringNotContainsString('Verde actualizado', view('pdf.proforma.document', $pdfModel)->render());
     }
 
     public function test_status_transition_is_validated(): void
