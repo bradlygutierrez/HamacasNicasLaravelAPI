@@ -114,6 +114,7 @@ Route::post('/v1/proformas/{proforma}/estado', [ProformaController::class, 'stat
 Route::post('/v1/proformas/{proforma}/pedido', [ProformaController::class, 'convertToPedido'])->middleware($pedidoConvert);
 
 Route::get('/v1/pedidos', [PedidoController::class, 'index'])->middleware($pedidoView);
+Route::get('/v1/pedidos/{pedido}/materiales/pdf', [PedidoController::class, 'materialsPdf'])->middleware($pedidoView);
 Route::get('/v1/pedidos/{pedido}', [PedidoController::class, 'show'])->middleware($pedidoView);
 Route::put('/v1/pedidos/{pedido}', [PedidoController::class, 'update'])->middleware($pedidoOperate);
 Route::post('/v1/pedidos/{pedido}/estado', [PedidoController::class, 'status'])->middleware($pedidoOperate);

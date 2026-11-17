@@ -21,17 +21,28 @@ use App\Services\PedidoMaterialService;
 use App\Services\PedidoProcesoService;
 use App\Services\PedidoService;
 use App\Services\PedidoFacturacionService;
+use App\Services\Documents\PedidoMaterialPdfService;
 use Illuminate\Http\Request;
 
 class PedidoController extends Controller
 {
-    public function __construct(private readonly PedidoService $service, private readonly PedidoMaterialService $materials, private readonly PedidoProcesoService $processes, private readonly PedidoFacturacionService $billing) {}
+    public function __construct(private readonly PedidoService $service, private readonly PedidoMaterialService $materials, private readonly PedidoProcesoService $processes, private readonly PedidoFacturacionService $billing, private readonly PedidoMaterialPdfService $materialPdfs) {}
     public function index(Request $request)
     {
         $query = Pedido::with('vendedor')->withCount(['materiales as materiales_total', 'procesos as procesos_total'])->withCount(['materiales as materiales_listos' => fn ($q) => $q->where('estado', 'listo'), 'procesos as procesos_completados' => fn ($q) => $q->where('estado', 'completado')])->withSum('materiales as costo_compra_real_total', 'costo_compra_real')->when($request->user()->rol === 'vendedor', fn ($q) => $q->where('vendedor_id', $request->user()->id))->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q->where('numero', 'like', '%' . $request->string('search') . '%')->orWhere('proforma_numero_snapshot', 'like', '%' . $request->string('search') . '%')->orWhere('nombre_cliente', 'like', '%' . $request->string('search') . '%')->orWhere('ruc', 'like', '%' . $request->string('search') . '%')))->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->string('estado')))->when($request->filled('vendedor_id') && $request->user()->rol !== 'vendedor', fn ($q) => $q->where('vendedor_id', $request->integer('vendedor_id')))->when($request->filled('cliente_id'), fn ($q) => $q->where('cliente_id', $request->integer('cliente_id')))->when($request->filled('desde'), fn ($q) => $q->whereDate('fecha_pedido', '>=', $request->date('desde')))->when($request->filled('hasta'), fn ($q) => $q->whereDate('fecha_pedido', '<=', $request->date('hasta')))->latest(); $page = $query->paginate(min(max($request->integer('per_page', 15), 1), 100));
         return PedidoResource::collection($page);
     }
     public function show(Request $request, Pedido $pedido): PedidoResource { $this->assertView($pedido, $request); return new PedidoResource($pedido->load($this->relations())); }
+    public function materialsPdf(Request $request, Pedido $pedido)
+    {
+        $this->assertView($pedido, $request);
+        $filename = 'lista-compra-' . ($pedido->numero ?: 'pedido-' . $pedido->id) . '.pdf';
+
+        return response($this->materialPdfs->render($pedido)->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="' . $filename . '"',
+        ]);
+    }
     public function update(PedidoLogisticsRequest $request, Pedido $pedido): PedidoResource { $this->assertView($pedido, $request); return new PedidoResource($this->service->updateLogistics($pedido, $request->validated(), $request->user())); }
     public function status(PedidoStatusRequest $request, Pedido $pedido): PedidoResource { $this->assertView($pedido, $request); return new PedidoResource($this->service->changeStatus($pedido, $request->validated('estado'), $request->user(), $request->validated('comentario'))); }
     public function material(PedidoMaterialRequest $request, Pedido $pedido, PedidoMaterial $pedidoMaterial): PedidoMaterialResource { $this->assertView($pedido, $request); return new PedidoMaterialResource($this->materials->update($pedido, $pedidoMaterial, $request->validated(), $request->user())); }
