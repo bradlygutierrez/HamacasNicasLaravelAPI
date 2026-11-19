@@ -218,6 +218,7 @@ HTML, 200, ['Content-Type' => 'text/html']);
                             'tipo' => ['type' => 'string'],
                             'cantidad' => ['type' => 'integer'],
                             'fecha' => ['type' => 'string', 'format' => 'date'],
+                            'editable' => ['type' => 'boolean'],
                         ],
                     ],
                     'Factura' => [
@@ -497,6 +498,31 @@ HTML, 200, ['Content-Type' => 'text/html']);
                 ],
                 '/v1/movimientos/{movimiento}' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Ver movimiento de auditoria', 'security' => [['bearerAuth' => []]], 'parameters' => [$this->pathParameter('movimiento')], 'responses' => ['200' => ['description' => 'Movimiento']]],
+                    'patch' => [
+                        'tags' => ['Movimientos'],
+                        'summary' => 'Editar entrada o salida manual y reconciliar stock',
+                        'security' => [['bearerAuth' => [], 'apiKeyAuth' => []]],
+                        'parameters' => [$this->pathParameter('movimiento')],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'cantidad' => ['type' => 'integer', 'minimum' => 1],
+                                            'fecha' => ['type' => 'string', 'format' => 'date'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Movimiento actualizado y stock reconciliado'],
+                            '409' => ['description' => 'Stock insuficiente'],
+                            '422' => ['description' => 'Movimiento vinculado o datos inválidos'],
+                        ],
+                    ],
                 ],
                 '/v1/movimientos/monthly-entries' => [
                     'get' => ['tags' => ['Movimientos'], 'summary' => 'Entradas mensuales', 'security' => [['bearerAuth' => []]], 'responses' => ['200' => ['description' => 'Total de entradas']]],

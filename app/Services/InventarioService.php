@@ -42,6 +42,42 @@ class InventarioService
             return $this->loadInventario($source);
         });
     }
+    public function updateManualMovement(Movimiento $movement, array $data): Movimiento
+    {
+        return DB::transaction(function () use ($movement, $data) {
+            $movement = Movimiento::lockForUpdate()->findOrFail($movement->id);
+
+            if ($movement->factura_id !== null || $movement->pedido_id !== null || !in_array($movement->tipo, ['entrada', 'salida'], true)) {
+                throw new BusinessRuleException(
+                    'Solo se pueden editar movimientos manuales de entrada o salida.',
+                    ['movimiento' => ['Este movimiento está vinculado a una venta o pedido, o no es editable.']],
+                    422
+                );
+            }
+
+            $inventory = InventarioHamaca::lockForUpdate()->findOrFail($movement->inventario_hamaca_id);
+            $newQuantity = $data['cantidad'] ?? (int) $movement->cantidad;
+            $quantityDifference = $newQuantity - (int) $movement->cantidad;
+
+            if ($movement->tipo === 'entrada') {
+                if ($quantityDifference > 0) {
+                    $inventory->increment('cantidad', $quantityDifference);
+                } elseif ($quantityDifference < 0) {
+                    $this->ensureStock($inventory, -$quantityDifference);
+                    $inventory->decrement('cantidad', -$quantityDifference);
+                }
+            } elseif ($quantityDifference > 0) {
+                $this->ensureStock($inventory, $quantityDifference);
+                $inventory->decrement('cantidad', $quantityDifference);
+            } elseif ($quantityDifference < 0) {
+                $inventory->increment('cantidad', -$quantityDifference);
+            }
+
+            $movement->fill($data)->save();
+
+            return $movement->fresh();
+        });
+    }
     private function ensureStock(InventarioHamaca $inventory, int $quantity): void { if ($inventory->cantidad < $quantity) throw new BusinessRuleException('Stock insuficiente.', ['cantidad' => ["Solo hay {$inventory->cantidad} unidades disponibles."]]); }
     private function loadInventario(InventarioHamaca $inventory): InventarioHamaca { return $inventory->fresh(['hamaca.categoria', 'hamaca.tamano', 'hamaca.fotos', 'hamaca.colores', 'ubicacion', 'usuario']); }
 }

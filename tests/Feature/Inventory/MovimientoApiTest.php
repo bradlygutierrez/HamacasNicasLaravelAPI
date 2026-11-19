@@ -13,7 +13,7 @@ class MovimientoApiTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_movimientos_are_read_only_audit_records(): void
+    public function test_manual_entries_can_be_edited_and_linked_movements_are_protected(): void
     {
         $admin = $this->seedUser('admin');
         $seed = $this->seedInventory($admin->id);
@@ -41,7 +41,8 @@ class MovimientoApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $movimientoId)
             ->assertJsonPath('data.tipo', 'entrada')
-            ->assertJsonPath('data.cantidad', 3);
+            ->assertJsonPath('data.cantidad', 3)
+            ->assertJsonPath('data.editable', true);
 
         $this->postJson('/api/v1/movimientos', [
             'inventario_hamaca_id' => $seed['inventario_id'],
@@ -51,6 +52,18 @@ class MovimientoApiTest extends TestCase
             'cantidad' => 3,
             'fecha' => '2026-06-18 10:00:00',
         ])->assertStatus(405);
+
+        $this->patchJson("/api/v1/movimientos/{$movimientoId}", [
+            'cantidad' => 5,
+            'fecha' => '2026-06-19',
+        ])->assertOk()
+            ->assertJsonPath('data.cantidad', 5)
+            ->assertJsonPath('data.editable', true);
+
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 9,
+        ]);
 
         $this->putJson("/api/v1/movimientos/{$movimientoId}", [
             'cantidad' => 5,
@@ -62,10 +75,36 @@ class MovimientoApiTest extends TestCase
         $this->deleteJson("/api/v1/movimientos/{$movimientoId}")
             ->assertStatus(405);
 
+        $facturaId = DB::table('facturas')->insertGetId([
+            'numero' => 'TEST-'.uniqid(),
+            'vendedor_id' => $admin->id,
+            'nombre_cliente' => 'Cliente de prueba',
+            'subtotal' => 100,
+            'total' => 100,
+            'fecha' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('movimientos')
+            ->where('id', $movimientoId)
+            ->update(['factura_id' => $facturaId]);
+
+        $this->getJson("/api/v1/movimientos/{$movimientoId}")
+            ->assertOk()
+            ->assertJsonPath('data.editable', false);
+
+        $this->patchJson("/api/v1/movimientos/{$movimientoId}", [
+            'cantidad' => 6,
+        ])->assertUnprocessable();
+
         $this->assertDatabaseHas('movimientos', [
             'id' => $movimientoId,
             'tipo' => 'entrada',
-            'cantidad' => 3,
+            'cantidad' => 5,
+        ]);
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 9,
         ]);
     }
 

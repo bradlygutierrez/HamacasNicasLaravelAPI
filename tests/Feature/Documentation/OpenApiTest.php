@@ -17,6 +17,7 @@ class OpenApiTest extends TestCase
             ->assertJsonPath('paths./v1/login.post.summary', 'Login administrativo')
             ->assertJsonPath('paths./v1/hamacas/monthly-inventory.get.summary', 'Inventario inicial mensual')
             ->assertJsonPath('paths./v1/movimientos/monthly-entries.get.summary', 'Entradas mensuales')
+            ->assertJsonPath('paths./v1/movimientos/{movimiento}.patch.summary', 'Editar entrada o salida manual y reconciliar stock')
             ->assertJsonPath('paths./v1/inventario-hamacas.get.summary', 'Listar inventario')
             ->assertJsonPath('paths./v1/pos/ventas.post.summary', 'Registrar venta POS')
             ->assertJsonPath('paths./v1/facturas.get.summary', 'Listado de facturas')

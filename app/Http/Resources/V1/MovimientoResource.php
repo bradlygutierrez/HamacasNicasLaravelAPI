@@ -21,6 +21,9 @@ class MovimientoResource extends JsonResource
             'tipo' => $this->tipo,
             'cantidad' => $this->cantidad,
             'fecha' => $this->fecha,
+            'editable' => $this->factura_id === null
+                && $this->pedido_id === null
+                && in_array($this->tipo, ['entrada', 'salida'], true),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

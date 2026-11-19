@@ -180,6 +180,7 @@ Route::apiResource('/v1/pantalla-permiso-roles', PantallaPermisoRolController::c
 Route::get('/v1/movimientos/monthly-entries', [MovimientoController::class, 'getMonthlyEntries'])->middleware($auth);
 Route::get('/v1/movimientos/monthly-exits', [MovimientoController::class, 'getMonthlyExits'])->middleware($auth);
 Route::apiResource('/v1/movimientos', MovimientoController::class)->only(['index', 'show'])->middleware($auth);
+Route::patch('/v1/movimientos/{movimiento}', [MovimientoController::class, 'update'])->middleware($inventoryManager);
 
 // Dashboard.
 Route::get('/v1/dashboard/summary', [DashboardController::class, 'summary'])->middleware($auth);

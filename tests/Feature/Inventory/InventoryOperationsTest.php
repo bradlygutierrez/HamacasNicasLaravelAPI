@@ -94,6 +94,81 @@ class InventoryOperationsTest extends TestCase
         ]);
     }
 
+    public function test_editing_manual_entry_reconciles_inventory_quantity(): void
+    {
+        $operador = $this->userWithRole('almacenista');
+        $seed = $this->inventoryFixture(10);
+        $movement = Movimiento::create([
+            'inventario_hamaca_id' => $seed['inventario_id'],
+            'usuario_id' => $operador->id,
+            'ubicacion_destino_id' => $seed['ubicacion_origen_id'],
+            'tipo' => 'entrada',
+            'cantidad' => 2,
+            'fecha' => '2026-09-15',
+        ]);
+        Sanctum::actingAs($operador);
+
+        $this->patchJson("/api/v1/movimientos/{$movement->id}", [
+            'cantidad' => 5,
+            'fecha' => '2026-09-16',
+        ])->assertOk()
+            ->assertJsonPath('data.cantidad', 5);
+
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 13,
+        ]);
+
+        $this->patchJson("/api/v1/movimientos/{$movement->id}", [
+            'cantidad' => 1,
+        ])->assertOk()
+            ->assertJsonPath('data.cantidad', 1);
+
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 9,
+        ]);
+    }
+
+    public function test_editing_manual_exit_reconciles_inventory_and_rejects_insufficient_stock(): void
+    {
+        $operador = $this->userWithRole('almacenista');
+        $seed = $this->inventoryFixture(5);
+        $movement = Movimiento::create([
+            'inventario_hamaca_id' => $seed['inventario_id'],
+            'usuario_id' => $operador->id,
+            'ubicacion_origen_id' => $seed['ubicacion_origen_id'],
+            'tipo' => 'salida',
+            'cantidad' => 2,
+            'fecha' => '2026-09-15',
+        ]);
+        Sanctum::actingAs($operador);
+
+        $this->patchJson("/api/v1/movimientos/{$movement->id}", [
+            'cantidad' => 4,
+        ])->assertOk()
+            ->assertJsonPath('data.cantidad', 4);
+
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 3,
+        ]);
+
+        $this->patchJson("/api/v1/movimientos/{$movement->id}", [
+            'cantidad' => 8,
+        ])->assertStatus(409)
+            ->assertJsonPath('errors.cantidad.0', 'Solo hay 3 unidades disponibles.');
+
+        $this->assertDatabaseHas('movimientos', [
+            'id' => $movement->id,
+            'cantidad' => 4,
+        ]);
+        $this->assertDatabaseHas('inventario_hamacas', [
+            'id' => $seed['inventario_id'],
+            'cantidad' => 3,
+        ]);
+    }
+
     public function test_transferencia_parcial_creates_or_increments_destination_without_moving_source_row(): void
     {
         $operador = $this->userWithRole('almacenista');

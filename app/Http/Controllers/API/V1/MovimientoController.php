@@ -6,11 +6,14 @@ use App\Http\Resources\V1\MovimientoResource;
 use App\Http\Resources\V1\MovimientoCollection;
 use App\Http\Controllers\Controller;
 use App\Models\Movimiento;
+use App\Services\InventarioService;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 
 class MovimientoController extends Controller
 {
+    public function __construct(private readonly InventarioService $inventarioService) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -57,17 +60,11 @@ class MovimientoController extends Controller
     public function update(Request $request, Movimiento $movimiento)
     {
         $validated = $request->validate([
-            'inventario_hamaca_id' => ['sometimes', 'required', 'integer', 'exists:inventario_hamacas,id'],
-            'usuario_id' => ['sometimes', 'required', 'integer', 'exists:usuarios,id'],
-            'factura_id' => ['nullable', 'integer', 'exists:facturas,id'],
-            'ubicacion_origen_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
-            'ubicacion_destino_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
-            'tipo' => ['sometimes', 'required', Rule::in(['entrada', 'salida', 'transferencia'])],
-            'cantidad' => ['sometimes', 'required', 'integer', 'min:1'],
-            'fecha' => ['sometimes', 'required', 'date'],
+            'cantidad' => ['required_without:fecha', 'integer', 'min:1'],
+            'fecha' => ['required_without:cantidad', 'date'],
         ]);
 
-        $movimiento->update($validated);
+        $movimiento = $this->inventarioService->updateManualMovement($movimiento, $validated);
 
         return response()->json([
             'message' => 'Movimiento actualizado correctamente',
