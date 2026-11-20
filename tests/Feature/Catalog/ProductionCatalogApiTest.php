@@ -157,6 +157,7 @@ class ProductionCatalogApiTest extends TestCase
     public function test_admin_can_manage_service_price_history_and_process_catalog(): void
     {
         Sanctum::actingAs($this->seedUser('admin'));
+        $initialPriceCount = DB::table('servicio_precios')->count();
 
         $serviceResponse = $this->postJson('/api/v1/servicios-adicionales', [
             'codigo' => 'ENVIO',
@@ -169,19 +170,19 @@ class ProductionCatalogApiTest extends TestCase
 
         $serviceResponse->assertOk();
         $serviceId = $serviceResponse->json('data.id');
-        $this->assertDatabaseCount('servicio_precios', 1);
+        $this->assertDatabaseCount('servicio_precios', $initialPriceCount + 1);
 
         $this->putJson("/api/v1/servicios-adicionales/{$serviceId}", [
             'costo_actual' => 200,
         ])->assertOk();
 
-        $this->assertDatabaseCount('servicio_precios', 2);
+        $this->assertDatabaseCount('servicio_precios', $initialPriceCount + 2);
 
         $this->putJson("/api/v1/servicios-adicionales/{$serviceId}", [
             'nombre' => 'Envío nacional',
         ])->assertOk();
 
-        $this->assertDatabaseCount('servicio_precios', 2);
+        $this->assertDatabaseCount('servicio_precios', $initialPriceCount + 2);
 
         $processResponse = $this->postJson('/api/v1/procesos-produccion', [
             'codigo' => 'TEJ',

@@ -41,7 +41,12 @@ class AdministrativeAuthTest extends TestCase
     {
         $this->seedBasicUser('admin');
 
+        $csrfResponse = $this->withHeader('Origin', 'http://localhost:3000')
+            ->getJson('/api/v1/csrf-token')
+            ->assertOk();
+
         $response = $this->withHeader('Origin', 'http://localhost:3000')
+            ->withHeader('X-CSRF-TOKEN', $csrfResponse->json('csrf_token'))
             ->postJson('/api/v1/login', [
             'correo' => 'admin@example.com',
             'password' => 'secret123',
