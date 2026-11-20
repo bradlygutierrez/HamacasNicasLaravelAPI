@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{ $documentLocale ?? 'es' }}">
 <head>
     <meta charset="utf-8">
     <title>{{ $title ?? 'Documento comercial' }}</title>
@@ -80,6 +80,7 @@
         .proforma-totals .grand-total td { border-top: 2px solid #e3b72e; color: #002060; font-size: 14px; font-weight: bold; padding-top: 6px; }
         .document-footer { margin-top: 12px; padding-top: 6px; border-top: 1px solid #d7e0e7; color: #63717a; font-size: 8px; text-align: center; }
     </style>
+    @yield('styles')
 </head>
 <body>
     @yield('content')

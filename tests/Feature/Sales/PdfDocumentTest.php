@@ -15,6 +15,7 @@ use App\Models\Usuario;
 use App\Services\Documents\PdfImageResolver;
 use App\Services\Documents\FacturaPdfService;
 use App\Services\Documents\ProformaPdfService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -73,11 +74,32 @@ class PdfDocumentTest extends TestCase
         $other = $this->userWithRole('vendedor');
         $socio = $this->userWithRole('socio');
         $warehouse = $this->userWithRole('almacenista');
-        $invoice = Factura::create(['numero' => 'FAC-' . uniqid(), 'vendedor_id' => $owner->id, 'origen' => 'venta_directa', 'canal' => 'pos', 'nombre_cliente' => 'Cliente snapshot', 'ruc' => 'RUC snapshot', 'direccion' => 'Dirección snapshot', 'telefono' => '8888', 'correo' => 'cliente@example.com', 'metodo_pago' => 'efectivo', 'subtotal' => 1000, 'descuento' => 50, 'tasa_iva' => .15, 'aplica_iva' => true, 'monto_iva' => 142.5, 'aplica_ir' => false, 'tasa_ir' => .02, 'monto_ir' => 0, 'total' => 1092.5, 'fecha' => now()]);
-        $this->assertSame(now()->format('d/m/Y'), app(FacturaPdfService::class)->viewModel($invoice->fresh())['dateFormatted']);
+        $saleDate = now()->subDay();
+        $invoice = Factura::create(['numero' => 'FAC-' . uniqid(), 'vendedor_id' => $owner->id, 'origen' => 'venta_directa', 'canal' => 'pos', 'nombre_cliente' => 'Cliente snapshot', 'ruc' => 'RUC snapshot', 'direccion' => 'Dirección snapshot', 'telefono' => '8888', 'correo' => 'cliente@example.com', 'metodo_pago' => 'efectivo', 'subtotal' => 1000, 'descuento' => 50, 'tasa_iva' => .15, 'aplica_iva' => true, 'monto_iva' => 142.5, 'aplica_ir' => true, 'tasa_ir' => .02, 'monto_ir' => 20, 'total' => 1072.5, 'fecha' => $saleDate]);
+        config(['documentos.empresa.logo' => null]);
+        $model = app(FacturaPdfService::class)->viewModel($invoice->fresh());
+        $this->assertSame(Carbon::parse($saleDate)->locale('es')->translatedFormat('l, j \d\e F \d\e Y'), $model['dateFormatted']);
+        $logo = base64_decode(substr($model['company']['logo'], strlen('data:image/svg+xml;base64,')), true);
+        $this->assertIsString($logo);
+        $this->assertStringContainsString('viewBox="0 350 612 150"', $logo);
+        $this->assertStringContainsString('#002060', $logo);
+        $html = view('pdf.factura.document', $model)->render();
+        foreach (['FACTURA', 'Número de factura', 'Emisor', 'Receptor', 'Cant.', 'Descripción', 'Total a pagar', 'Método de pago'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+        $englishModel = app(FacturaPdfService::class)->viewModel($invoice->fresh(), 'en');
+        $this->assertSame($saleDate->format('l, F j, Y'), $englishModel['dateFormatted']);
+        $this->assertSame('Cash', $englishModel['paymentMethodLabel']);
+        $this->assertSame('Unit price', $englishModel['labels']['unit_price']);
+        $englishHtml = view('pdf.factura.document', $englishModel)->render();
+        foreach (['INVOICE', 'Date:', 'Invoice number', 'Sender', 'Receiver', 'Qty.', 'Description', 'Discount', 'VAT', 'Income tax withholding', 'Total to pay', 'Thank you for your purchase.'] as $label) {
+            $this->assertStringContainsString($label, $englishHtml);
+        }
 
         Sanctum::actingAs($owner);
         $this->get('/api/v1/facturas/' . $invoice->id . '/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertHeader('Content-Disposition', 'inline; filename="' . $invoice->numero . '.pdf"');
+        $this->get('/api/v1/facturas/' . $invoice->id . '/pdf?lang=en')->assertOk();
+        $this->getJson('/api/v1/facturas/' . $invoice->id . '/pdf?lang=fr')->assertUnprocessable();
         $this->get('/api/v1/facturas/' . $invoice->id . '/pdf?download=1')->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="' . $invoice->numero . '.pdf"');
         Sanctum::actingAs($admin);
         $this->get('/api/v1/facturas/' . $invoice->id . '/pdf?download=1')->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="' . $invoice->numero . '.pdf"');

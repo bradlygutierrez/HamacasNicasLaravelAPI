@@ -46,7 +46,8 @@ class FacturaController extends Controller
     public function pdf(Request $request, Factura $factura)
     {
         $this->assertAccess($request, $factura);
-        return response($this->pdfs->render($factura)->output(), 200, [
+        $validated = $request->validate(['lang' => ['sometimes', 'string', 'in:es,en']]);
+        return response($this->pdfs->render($factura, $validated['lang'] ?? 'es')->output(), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="' . $factura->numero . '.pdf"',
         ]);
