@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
@@ -84,6 +85,20 @@ class AdministrativeAuthTest extends TestCase
             'password' => 'secret123',
         ])->assertOk()
             ->assertJsonStructure(['access_token', 'token_type']);
+    }
+
+    public function test_bearer_tokens_expire_after_configured_minutes(): void
+    {
+        $usuario = $this->seedBasicUser('admin');
+        config(['sanctum.expiration' => 5]);
+        Auth::forgetGuards();
+        $issuedToken = $usuario->createToken('mobile-test');
+
+        $this->withToken($issuedToken->plainTextToken)->getJson('/api/v1/me')->assertOk();
+        $issuedToken->accessToken->forceFill(['created_at' => now()->subMinutes(6)])->save();
+        Auth::forgetGuards();
+
+        $this->withToken($issuedToken->plainTextToken)->getJson('/api/v1/me')->assertUnauthorized();
     }
 
     public function test_logout_revokes_current_token(): void

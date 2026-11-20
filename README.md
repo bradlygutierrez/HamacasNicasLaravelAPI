@@ -7,6 +7,39 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Production setup
+
+For a fresh production database, connect to the server over SSH and run these
+commands from the Laravel application directory (the one containing `artisan`):
+
+Set `SANCTUM_EXPIRATION` in `.env` to the desired number of minutes first
+(43200 minutes, or 30 days, is the default), then cache the configuration:
+
+```bash
+php artisan config:cache
+```
+
+Create the schema and first administrator:
+
+```bash
+php artisan migrate --force
+php artisan app:create-first-admin
+```
+
+The admin command prompts for the name and email and asks for a password
+interactively (hidden while typing, minimum 12 characters). It refuses to run
+without an interactive terminal or if an administrator already exists. After
+creating this account, add other users through the application.
+
+Do not run `php artisan db:seed` in production. The seeder is restricted to
+local/testing environments and creates demo accounts with known passwords.
+
+Sanctum personal access tokens expire after 30 days by default. To configure a
+different lifetime, set `SANCTUM_EXPIRATION` in `.env` to the desired number of
+minutes before running `php artisan config:cache`.
+
+This setting applies to personal access tokens, not browser session cookies.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
