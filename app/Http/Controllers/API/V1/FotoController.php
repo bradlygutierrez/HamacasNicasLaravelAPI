@@ -82,12 +82,21 @@ class FotoController extends Controller
     }
 
     private function localPath(string $ruta): string
-    {
-        $path = ltrim($ruta, '/');
-        if (str_starts_with($path, 'storage/')) {
-            $path = substr($path, strlen('storage/'));
-        }
+{
+    $path = ltrim($ruta, '/');
 
-        return $path;
+    if (str_starts_with($path, 'storage/')) {
+        $path = substr($path, strlen('storage/'));
     }
+
+    if (
+        !str_starts_with($path, 'fotos/') ||
+        str_contains($path, '..') ||
+        str_contains($path, '\\')
+    ) {
+        abort(404);
+    }
+
+    return $path;
+}
 }
