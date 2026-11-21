@@ -18,8 +18,15 @@ return new class extends Migration
             $table->timestamps();
             $table->foreign('proforma_servicio_id')->references('id')->on('proforma_servicios')->cascadeOnDelete();
             $table->foreign('proforma_detalle_servicio_id')->references('id')->on('proforma_detalle_servicios')->cascadeOnDelete();
-            $table->index(['proforma_servicio_id', 'orden']);
-            $table->index(['proforma_detalle_servicio_id', 'orden']);
+            $table->index(
+                ['proforma_servicio_id', 'orden'],
+                'psd_servicio_orden_idx'
+            );
+
+            $table->index(
+                ['proforma_detalle_servicio_id', 'orden'],
+                'psd_detalle_orden_idx'
+            );
         });
     }
 
