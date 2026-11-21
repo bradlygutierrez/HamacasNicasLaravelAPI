@@ -55,7 +55,14 @@ class HamacaController extends Controller
 
     public function show(Hamaca $hamaca)
     {
-        return new HamacaResource($hamaca->load(['categoria', 'tamano', 'colores', 'fotos', 'inventarios.usuario', 'inventarios.ubicacion']));
+        return new HamacaResource(
+        $hamaca->load([
+            'categoria',
+            'tamano',
+            'colores',
+            'fotos'
+        ])
+    );
     }
 
     public function update(Request $request, Hamaca $hamaca, HamacaNameService $names)
