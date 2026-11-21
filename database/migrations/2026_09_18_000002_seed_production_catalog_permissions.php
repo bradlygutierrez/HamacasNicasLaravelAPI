@@ -49,10 +49,13 @@ return new class extends Migration
 
             $pantallaIds = DB::table('pantallas')
                 ->whereIn('slug', array_column($pantallas, 'slug'))
-                ->pluck('id', 'slug');
+                ->pluck('id', 'slug')
+                ->all();
+
             $permisoIds = DB::table('permisos')
                 ->whereIn('slug', array_column($permisos, 'slug'))
-                ->pluck('id', 'slug');
+                ->pluck('id', 'slug')
+                ->all();
 
             $accesos = [
                 'admin' => [
