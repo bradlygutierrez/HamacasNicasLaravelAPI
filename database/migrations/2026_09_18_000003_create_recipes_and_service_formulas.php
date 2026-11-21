@@ -74,7 +74,10 @@ return new class extends Migration
             $table->integer('orden')->nullable();
             $table->timestamps();
 
-            $table->unique(['servicio_adicional_id', 'proceso_produccion_id']);
+            $table->unique(
+                ['servicio_adicional_id', 'proceso_produccion_id'],
+                'srv_mo_srv_proc_unique'
+            );
             $table->foreign('servicio_adicional_id')->references('id')->on('servicios_adicionales')->cascadeOnDelete();
             $table->foreign('proceso_produccion_id')->references('id')->on('procesos_produccion')->restrictOnDelete();
         });
